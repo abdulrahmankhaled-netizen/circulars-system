@@ -14,12 +14,9 @@ st.set_page_config(page_title="نظام التعاميم", layout="wide")
 
 # --- الاتصال بقاعدة البيانات ---
 @st.cache_resource
-def get_connection():
-    return psycopg2.connect(DB_URL)
-
 def init_db():
     conn = psycopg2.connect(DB_URL)
-    conn.autocommit = True  # هذا السطر المهم
+    conn.autocommit = True
     cur = conn.cursor()
     
     try:
@@ -31,7 +28,7 @@ def init_db():
             )
         """)
     except Exception as e:
-        conn.rollback()  # لو صار خطأ يتراجع
+        conn.rollback()
         print(e)
     finally:
         cur.close()
