@@ -8,7 +8,7 @@ import io
 
 # --- الإعدادات ---
 # حط رابط Supabase هنا بعد ما تغير كلمة السر
-   DB_URL = st.secrets["DB_URL"]
+DB_URL = st.secrets["DB_URL"]
 
 st.set_page_config(page_title="نظام التعاميم", layout="wide")
 
