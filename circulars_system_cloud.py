@@ -125,7 +125,7 @@ else:
                     INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
                     circular_type, circular_authority, circular_number, circular_status, date_received,
                     days_pending, notes, created_by)
-                    VALUES (%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s)
                 """, (store_id, plate_number, brand_model, emirate, yard, car_status, circular_type,
                       circular_authority, circular_number, circular_status, date_received, days_pending,
                       notes, st.session_state.username))
@@ -223,5 +223,12 @@ else:
                         st.error("اسم المستخدم موجود مسبقاً")
                     cur.close()
                     conn.close()
+
+            # عرض المستخدمين
+            st.subheader("المستخدمين الحاليين")
+            conn = get_connection()
+            users_df = pd.read_sql_query("SELECT id, username, role FROM users", conn)
+            conn.close()
+            st.dataframe(users_df, use_container_width=True)
         else:
             st.warning("هذه الصفحة للأدمن فقط")
