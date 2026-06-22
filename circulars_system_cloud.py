@@ -5,6 +5,7 @@ from datetime import datetime, date
 import hashlib
 from fpdf import FPDF
 import io
+import plotly.express as px
 
 # --- الإعدادات ---
 DB_URL = st.secrets["DB_URL"]
@@ -56,7 +57,7 @@ def init_db():
 
 init_db()
 
-# --- تسجيل الدخول ---
+# --- دوال مساعدة ---
 def login(username, password):
     conn = get_connection()
     cur = conn.cursor()
@@ -67,12 +68,22 @@ def login(username, password):
     conn.close()
     return result[0] if result else None
 
-# --- واجهة تسجيل الدخول ---
+def color_days(val):
+    if val > 30:
+        color = '#ff4b4b'
+    elif val > 14:
+        color = '#ffa500'
+    else:
+        color = '#32cd32'
+    return f'background-color: {color}; color: white'
+
+# --- الحالة ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'edit_id' not in st.session_state:
     st.session_state.edit_id = None
 
+# --- واجهة تسجيل الدخول ---
 if not st.session_state.logged_in:
     st.title("🔐 تسجيل الدخول - نظام التعاميم")
     username = st.text_input("اسم المستخدم")
@@ -94,14 +105,29 @@ else:
         st.rerun()
 
     st.title("🚗 نظام إدارة تعاميم السيارات")
-    st.success("النظام شغال على Supabase ☁")
+
+    # --- Dashboard سريع ---
+    conn = get_connection()
+    df_all = pd.read_sql_query("SELECT * FROM circulars", conn)
+    conn.close()
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("إجمالي التعاميم", len(df_all))
+    with col2:
+        st.metric("تعاميم مفتوحة", len(df_all[df_all['circular_status']=='مفتوح']))
+    with col3:
+        st.metric("متأخر +30 يوم", len(df_all[df_all['days_pending']>30]))
+    with col4:
+        st.metric("تعاميم دبي", len(df_all[df_all['emirate']=='دبي']))
+
+    st.divider()
 
     # --- التبويبات ---
-    tab1, tab2, tab3, tab4 = st.tabs(["➕ إضافة تعميم", "📋 عرض التعاميم", "📥 استيراد Excel", "👥 إدارة المستخدمين"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["➕ إضافة/تعديل", "📋 عرض التعاميم", "📊 إحصائيات", "📥 استيراد Excel", "👥 إدارة المستخدمين"])
 
     # تبويب 1: إضافة + تعديل تعميم
     with tab1:
-        # وضع التعديل
         if st.session_state.edit_id:
             st.subheader("✏️ تعديل التعميم")
             conn = get_connection()
@@ -117,15 +143,19 @@ else:
                     store_id = st.text_input("رقم المتجر", value=row[1] or "")
                     plate_number = st.text_input("رقم اللوحة", value=row[2] or "")
                     brand_model = st.text_input("الماركة والموديل", value=row[3] or "")
-                    emirate = st.selectbox("الإمارة", ["دبي", "أبوظبي", "الشارقة", "عجمان", "أم القيوين", "رأس الخيمة", "الفجيرة"], index=["دبي", "أبوظبي", "الشارقة", "عجمان", "أم القيوين", "رأس الخيمة", "الفجيرة"].index(row[4]) if row[4] else 0)
+                    emirate_list = ["دبي", "أبوظبي", "الشارقة", "عجمان", "أم القيوين", "رأس الخيمة", "الفجيرة"]
+                    emirate = st.selectbox("الإمارة", emirate_list, index=emirate_list.index(row[4]) if row[4] in emirate_list else 0)
                 with col2:
                     yard = st.text_input("الساحة", value=row[5] or "")
-                    car_status = st.selectbox("حالة السيارة", ["موجودة", "مباعة", "في الورشة", "محجوزة"], index=["موجودة", "مباعة", "في الورشة", "محجوزة"].index(row[6]) if row[6] else 0)
-                    circular_type = st.selectbox("نوع التعميم", ["حجز", "منع بيع", "استعلام", "مخالفة"], index=["حجز", "منع بيع", "استعلام", "مخالفة"].index(row[7]) if row[7] else 0)
+                    car_list = ["موجودة", "مباعة", "في الورشة", "محجوزة"]
+                    car_status = st.selectbox("حالة السيارة", car_list, index=car_list.index(row[6]) if row[6] in car_list else 0)
+                    type_list = ["حجز", "منع بيع", "استعلام", "مخالفة"]
+                    circular_type = st.selectbox("نوع التعميم", type_list, index=type_list.index(row[7]) if row[7] in type_list else 0)
                     circular_authority = st.text_input("جهة التعميم", value=row[8] or "")
                 with col3:
                     circular_number = st.text_input("رقم التعميم", value=row[9] or "")
-                    circular_status = st.selectbox("حالة التعميم", ["مفتوح", "مغلق", "قيد المعالجة"], index=["مفتوح", "مغلق", "قيد المعالجة"].index(row[10]) if row[10] else 0)
+                    status_list = ["مفتوح", "مغلق", "قيد المعالجة"]
+                    circular_status = st.selectbox("حالة التعميم", status_list, index=status_list.index(row[10]) if row[10] in status_list else 0)
                     date_received = st.date_input("تاريخ الاستلام", value=row[11] if row[11] else date.today())
                     notes = st.text_area("ملاحظات", value=row[13] or "")
 
@@ -180,7 +210,7 @@ else:
                         INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
                         circular_type, circular_authority, circular_number, circular_status, date_received,
                         days_pending, notes, created_by)
-                        VALUES (%s,%s,%s,%s)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """, (store_id, plate_number, brand_model, emirate, yard, car_status, circular_type,
                           circular_authority, circular_number, circular_status, date_received, days_pending,
                           notes, st.session_state.username))
@@ -190,7 +220,7 @@ else:
                     st.success("تم حفظ التعميم بنجاح ✅")
                     st.rerun()
 
-    # تبويب 2: عرض التعاميم + أزرار تعديل وحذف
+    # تبويب 2: عرض التعاميم + تعديل وحذف
     with tab2:
         st.subheader("كل التعاميم")
         conn = get_connection()
@@ -213,12 +243,12 @@ else:
         if search_plate:
             df = df[df['plate_number'].str.contains(search_plate, na=False)]
 
-        # عرض الجدول مع أزرار
+        # عرض مع أزرار
         for index, row in df.iterrows():
             with st.container():
-                col1, col2, col3, col4 = st.columns([3,1,1,1])
+                col1, col2, col3 = st.columns([4,1,1])
                 with col1:
-                    st.write(f"**{row['plate_number']}** | {row['brand_model']} | {row['circular_type']} | {row['circular_status']}")
+                    st.write(f"**{row['plate_number']}** | {row['brand_model']} | {row['circular_type']} | {row['circular_status']} | {row['days_pending']} يوم")
                 with col2:
                     if st.button("✏️ تعديل", key=f"edit_{row['id']}"):
                         st.session_state.edit_id = row['id']
@@ -233,14 +263,6 @@ else:
                         conn.close()
                         st.success("تم الحذف ✅")
                         st.rerun()
-                with col4:
-                    days = row['days_pending']
-                    if days > 30:
-                        st.error(f"{days} يوم")
-                    elif days > 14:
-                        st.warning(f"{days} يوم")
-                    else:
-                        st.info(f"{days} يوم")
                 st.divider()
 
         # تصدير PDF
@@ -252,13 +274,30 @@ else:
             pdf.cell(200, 10, txt="تقرير التعاميم", ln=True, align='C')
             pdf.ln(10)
             for index, row in df.iterrows():
-                pdf.cell(200, 8, txt=f"لوحة: {row['plate_number']} | نوع: {row['circular_type']} | حالة: {row['circular_status']}", ln=True, align='R')
+                pdf.cell(200, 8, txt=f"لوحة: {row['plate_number']} | نوع: {row['circular_type']} | حالة: {row['circular_status']} | {row['days_pending']} يوم", ln=True, align='R')
             pdf_output = io.BytesIO()
             pdf.output(pdf_output)
             st.download_button("تحميل PDF", data=pdf_output.getvalue(), file_name="circulars.pdf", mime="application/pdf")
 
-    # تبويب 3: استيراد Excel
+    # تبويب 3: إحصائيات
     with tab3:
+        st.subheader("📊 Dashboard الإحصائيات")
+        if len(df_all) > 0:
+            col1, col2 = st.columns(2)
+            with col1:
+                fig1 = px.pie(df_all, names='emirate', title='التعاميم حسب الإمارة')
+                st.plotly_chart(fig1, use_container_width=True)
+            with col2:
+                fig2 = px.bar(df_all, x='circular_status', title='التعاميم حسب الحالة')
+                st.plotly_chart(fig2, use_container_width=True)
+
+            fig3 = px.bar(df_all, x='circular_type', title='التعاميم حسب النوع')
+            st.plotly_chart(fig3, use_container_width=True)
+        else:
+            st.info("لا توجد بيانات لعرضها")
+
+    # تبويب 4: استيراد Excel
+    with tab4:
         st.subheader("استيراد من ملف Excel")
         st.info("الأعمدة المطلوبة: store_id, plate_number, brand_model, emirate, yard, car_status, circular_type, circular_authority, circular_number, circular_status, date_received, notes")
         uploaded_file = st.file_uploader("اختار ملف Excel", type=['xlsx', 'xls'])
@@ -276,7 +315,7 @@ else:
                         INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
                         circular_type, circular_authority, circular_number, circular_status, date_received,
                         days_pending, notes, created_by)
-                        VALUES (%s,%s,%s,%s,%s,%s)
+                        VALUES (%s,%s,%s,%s)
                     """, (row.get('store_id'), row.get('plate_number'), row.get('brand_model'), row.get('emirate'),
                           row.get('yard'), row.get('car_status'), row.get('circular_type'), row.get('circular_authority'),
                           row.get('circular_number'), row.get('circular_status'), row.get('date_received'),
@@ -286,8 +325,8 @@ else:
                 conn.close()
                 st.success(f"تم استيراد {len(df_excel)} صف بنجاح ✅")
 
-    # تبويب 4: إدارة المستخدمين - للأدمن فقط
-    with tab4:
+    # تبويب 5: إدارة المستخدمين
+    with tab5:
         if st.session_state.role == 'admin':
             st.subheader("إضافة مستخدم جديد")
             with st.form("add_user"):
@@ -308,7 +347,6 @@ else:
                     cur.close()
                     conn.close()
 
-            # عرض المستخدمين
             st.subheader("المستخدمين الحاليين")
             conn = get_connection()
             users_df = pd.read_sql_query("SELECT id, username, role FROM users", conn)
