@@ -7,67 +7,68 @@ from fpdf import FPDF
 import io
 
 # --- الإعدادات ---
-# حط رابط Supabase هنا بعد ما تغير كلمة السر
 DB_URL = st.secrets["DB_URL"]
-
 st.set_page_config(page_title="نظام التعاميم", layout="wide")
 
 # --- الاتصال بقاعدة البيانات ---
+def get_connection():
+    return psycopg2.connect(DB_URL)
+
 def init_db():
-    conn = psycopg2.connect(DB_URL)
-    conn.autocommit = True
+    conn = get_connection()
     cur = conn.cursor()
-    
+
     try:
+        # جدول اليوزرات
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 username TEXT UNIQUE,
-                password TEXT
+                password TEXT,
+                role TEXT
             )
         """)
+
+        # جدول التعاميم
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS circulars (
+                id SERIAL PRIMARY KEY,
+                store_id TEXT,
+                plate_number TEXT,
+                brand_model TEXT,
+                emirate TEXT,
+                yard TEXT,
+                car_status TEXT,
+                circular_type TEXT,
+                circular_authority TEXT,
+                circular_number TEXT,
+                circular_status TEXT,
+                date_received DATE,
+                days_pending INTEGER,
+                notes TEXT,
+                created_by TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+
+        # مدير افتراضي
+        cur.execute("SELECT * FROM users WHERE username='admin'")
+        if not cur.fetchone():
+            hashed = hashlib.sha256('admin123'.encode()).hexdigest()
+            cur.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)",
+                        ('admin', hashed, 'مدير'))
+        conn.commit()
+
     except Exception as e:
         conn.rollback()
-        print(e)
+        st.error(f"خطأ في قاعدة البيانات: {e}")
     finally:
         cur.close()
         conn.close()
-    # جدول التعاميم
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS circulars (
-            id SERIAL PRIMARY KEY,
-            store_id TEXT,
-            plate_number TEXT,
-            brand_model TEXT,
-            emirate TEXT,
-            yard TEXT,
-            car_status TEXT,
-            circular_type TEXT,
-            circular_authority TEXT,
-            circular_number TEXT,
-            circular_status TEXT,
-            date_received DATE,
-            days_pending INTEGER,
-            notes TEXT,
-            created_by TEXT,
-            created_at TIMESTAMP DEFAULT NOW()
-        )
-    """)
-    # مدير افتراضي
-    cur.execute("SELECT * FROM users WHERE username='admin'")
-    if not cur.fetchone():
-        hashed = hashlib.sha256('admin123'.encode()).hexdigest()
-        cur.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)", 
-                    ('admin', hashed, 'مدير'))
-    conn.commit()
-    cur.close()
 
 init_db()
 
-# --- باقي الكود نفسه اللي عندك بس نبدل sqlite3 بـ psycopg2 ---
-# ونبدل? بـ %s في كل الاستعلامات
-
-# تسجيل الدخول
+# --- تسجيل الدخول ---
 def login(username, password):
     conn = get_connection()
     cur = conn.cursor()
@@ -75,9 +76,10 @@ def login(username, password):
     cur.execute("SELECT role FROM users WHERE username=%s AND password=%s", (username, hashed))
     result = cur.fetchone()
     cur.close()
+    conn.close()
     return result[0] if result else None
 
-# واجهة تسجيل الدخول
+# --- واجهة تسجيل الدخول ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
@@ -99,10 +101,8 @@ else:
     if st.sidebar.button("تسجيل خروج"):
         st.session_state.logged_in = False
         st.rerun()
-    
+
     st.title("🚗 نظام إدارة تعاميم السيارات")
-    st.info("النظام شغال على Supabase ☁️ | الحساب الافتراضي: admin / admin123")
-    
-    # هنا كمل باقي التبويبات: إضافة حالة، عرض الحالات، استيراد Excel، PDF...
-    # نفس الكود القديم بس بدل sqlite3 بـ get_connection() 
-    # وبدل? بـ %s
+    st.success("النظام شغال على Supabase ☁ | الحساب: admin / admin123")
+
+    st.write("كمل باقي التبويبات هنا...")
