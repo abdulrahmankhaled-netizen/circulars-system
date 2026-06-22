@@ -70,6 +70,8 @@ def login(username, password):
 # --- واجهة تسجيل الدخول ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
+if 'edit_id' not in st.session_state:
+    st.session_state.edit_id = None
 
 if not st.session_state.logged_in:
     st.title("🔐 تسجيل الدخول - نظام التعاميم")
@@ -88,6 +90,7 @@ else:
     st.sidebar.success(f"مرحبا {st.session_state.username} | {st.session_state.role}")
     if st.sidebar.button("تسجيل خروج"):
         st.session_state.logged_in = False
+        st.session_state.edit_id = None
         st.rerun()
 
     st.title("🚗 نظام إدارة تعاميم السيارات")
@@ -96,46 +99,98 @@ else:
     # --- التبويبات ---
     tab1, tab2, tab3, tab4 = st.tabs(["➕ إضافة تعميم", "📋 عرض التعاميم", "📥 استيراد Excel", "👥 إدارة المستخدمين"])
 
-    # تبويب 1: إضافة تعميم
+    # تبويب 1: إضافة + تعديل تعميم
     with tab1:
-        st.subheader("إضافة تعميم جديد")
-        with st.form("add_circular"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                store_id = st.text_input("رقم المتجر")
-                plate_number = st.text_input("رقم اللوحة")
-                brand_model = st.text_input("الماركة والموديل")
-                emirate = st.selectbox("الإمارة", ["دبي", "أبوظبي", "الشارقة", "عجمان", "أم القيوين", "رأس الخيمة", "الفجيرة"])
-            with col2:
-                yard = st.text_input("الساحة")
-                car_status = st.selectbox("حالة السيارة", ["موجودة", "مباعة", "في الورشة", "محجوزة"])
-                circular_type = st.selectbox("نوع التعميم", ["حجز", "منع بيع", "استعلام", "مخالفة"])
-                circular_authority = st.text_input("جهة التعميم")
-            with col3:
-                circular_number = st.text_input("رقم التعميم")
-                circular_status = st.selectbox("حالة التعميم", ["مفتوح", "مغلق", "قيد المعالجة"])
-                date_received = st.date_input("تاريخ الاستلام", value=date.today())
-                notes = st.text_area("ملاحظات")
+        # وضع التعديل
+        if st.session_state.edit_id:
+            st.subheader("✏️ تعديل التعميم")
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM circulars WHERE id=%s", (st.session_state.edit_id,))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
 
-            if st.form_submit_button("حفظ التعميم"):
-                days_pending = (date.today() - date_received).days
-                conn = get_connection()
-                cur = conn.cursor()
-                cur.execute("""
-                    INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
-                    circular_type, circular_authority, circular_number, circular_status, date_received,
-                    days_pending, notes, created_by)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """, (store_id, plate_number, brand_model, emirate, yard, car_status, circular_type,
-                      circular_authority, circular_number, circular_status, date_received, days_pending,
-                      notes, st.session_state.username))
-                conn.commit()
-                cur.close()
-                conn.close()
-                st.success("تم حفظ التعميم بنجاح ✅")
-                st.rerun()
+            with st.form("edit_circular"):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    store_id = st.text_input("رقم المتجر", value=row[1] or "")
+                    plate_number = st.text_input("رقم اللوحة", value=row[2] or "")
+                    brand_model = st.text_input("الماركة والموديل", value=row[3] or "")
+                    emirate = st.selectbox("الإمارة", ["دبي", "أبوظبي", "الشارقة", "عجمان", "أم القيوين", "رأس الخيمة", "الفجيرة"], index=["دبي", "أبوظبي", "الشارقة", "عجمان", "أم القيوين", "رأس الخيمة", "الفجيرة"].index(row[4]) if row[4] else 0)
+                with col2:
+                    yard = st.text_input("الساحة", value=row[5] or "")
+                    car_status = st.selectbox("حالة السيارة", ["موجودة", "مباعة", "في الورشة", "محجوزة"], index=["موجودة", "مباعة", "في الورشة", "محجوزة"].index(row[6]) if row[6] else 0)
+                    circular_type = st.selectbox("نوع التعميم", ["حجز", "منع بيع", "استعلام", "مخالفة"], index=["حجز", "منع بيع", "استعلام", "مخالفة"].index(row[7]) if row[7] else 0)
+                    circular_authority = st.text_input("جهة التعميم", value=row[8] or "")
+                with col3:
+                    circular_number = st.text_input("رقم التعميم", value=row[9] or "")
+                    circular_status = st.selectbox("حالة التعميم", ["مفتوح", "مغلق", "قيد المعالجة"], index=["مفتوح", "مغلق", "قيد المعالجة"].index(row[10]) if row[10] else 0)
+                    date_received = st.date_input("تاريخ الاستلام", value=row[11] if row[11] else date.today())
+                    notes = st.text_area("ملاحظات", value=row[13] or "")
 
-    # تبويب 2: عرض التعاميم
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    if st.form_submit_button("💾 حفظ التعديلات"):
+                        days_pending = (date.today() - date_received).days
+                        conn = get_connection()
+                        cur = conn.cursor()
+                        cur.execute("""
+                            UPDATE circulars SET store_id=%s, plate_number=%s, brand_model=%s, emirate=%s, yard=%s,
+                            car_status=%s, circular_type=%s, circular_authority=%s, circular_number=%s, circular_status=%s,
+                            date_received=%s, days_pending=%s, notes=%s WHERE id=%s
+                        """, (store_id, plate_number, brand_model, emirate, yard, car_status, circular_type,
+                              circular_authority, circular_number, circular_status, date_received, days_pending,
+                              notes, st.session_state.edit_id))
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        st.session_state.edit_id = None
+                        st.success("تم التعديل بنجاح ✅")
+                        st.rerun()
+                with col_b:
+                    if st.form_submit_button("❌ إلغاء"):
+                        st.session_state.edit_id = None
+                        st.rerun()
+        else:
+            st.subheader("إضافة تعميم جديد")
+            with st.form("add_circular"):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    store_id = st.text_input("رقم المتجر")
+                    plate_number = st.text_input("رقم اللوحة")
+                    brand_model = st.text_input("الماركة والموديل")
+                    emirate = st.selectbox("الإمارة", ["دبي", "أبوظبي", "الشارقة", "عجمان", "أم القيوين", "رأس الخيمة", "الفجيرة"])
+                with col2:
+                    yard = st.text_input("الساحة")
+                    car_status = st.selectbox("حالة السيارة", ["موجودة", "مباعة", "في الورشة", "محجوزة"])
+                    circular_type = st.selectbox("نوع التعميم", ["حجز", "منع بيع", "استعلام", "مخالفة"])
+                    circular_authority = st.text_input("جهة التعميم")
+                with col3:
+                    circular_number = st.text_input("رقم التعميم")
+                    circular_status = st.selectbox("حالة التعميم", ["مفتوح", "مغلق", "قيد المعالجة"])
+                    date_received = st.date_input("تاريخ الاستلام", value=date.today())
+                    notes = st.text_area("ملاحظات")
+
+                if st.form_submit_button("حفظ التعميم"):
+                    days_pending = (date.today() - date_received).days
+                    conn = get_connection()
+                    cur = conn.cursor()
+                    cur.execute("""
+                        INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
+                        circular_type, circular_authority, circular_number, circular_status, date_received,
+                        days_pending, notes, created_by)
+                        VALUES (%s,%s,%s,%s)
+                    """, (store_id, plate_number, brand_model, emirate, yard, car_status, circular_type,
+                          circular_authority, circular_number, circular_status, date_received, days_pending,
+                          notes, st.session_state.username))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    st.success("تم حفظ التعميم بنجاح ✅")
+                    st.rerun()
+
+    # تبويب 2: عرض التعاميم + أزرار تعديل وحذف
     with tab2:
         st.subheader("كل التعاميم")
         conn = get_connection()
@@ -158,7 +213,35 @@ else:
         if search_plate:
             df = df[df['plate_number'].str.contains(search_plate, na=False)]
 
-        st.dataframe(df, use_container_width=True)
+        # عرض الجدول مع أزرار
+        for index, row in df.iterrows():
+            with st.container():
+                col1, col2, col3, col4 = st.columns([3,1,1,1])
+                with col1:
+                    st.write(f"**{row['plate_number']}** | {row['brand_model']} | {row['circular_type']} | {row['circular_status']}")
+                with col2:
+                    if st.button("✏️ تعديل", key=f"edit_{row['id']}"):
+                        st.session_state.edit_id = row['id']
+                        st.rerun()
+                with col3:
+                    if st.button("🗑️ حذف", key=f"delete_{row['id']}"):
+                        conn = get_connection()
+                        cur = conn.cursor()
+                        cur.execute("DELETE FROM circulars WHERE id=%s", (row['id'],))
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        st.success("تم الحذف ✅")
+                        st.rerun()
+                with col4:
+                    days = row['days_pending']
+                    if days > 30:
+                        st.error(f"{days} يوم")
+                    elif days > 14:
+                        st.warning(f"{days} يوم")
+                    else:
+                        st.info(f"{days} يوم")
+                st.divider()
 
         # تصدير PDF
         if st.button("📄 تصدير PDF"):
@@ -177,6 +260,7 @@ else:
     # تبويب 3: استيراد Excel
     with tab3:
         st.subheader("استيراد من ملف Excel")
+        st.info("الأعمدة المطلوبة: store_id, plate_number, brand_model, emirate, yard, car_status, circular_type, circular_authority, circular_number, circular_status, date_received, notes")
         uploaded_file = st.file_uploader("اختار ملف Excel", type=['xlsx', 'xls'])
         if uploaded_file:
             df_excel = pd.read_excel(uploaded_file)
@@ -192,7 +276,7 @@ else:
                         INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
                         circular_type, circular_authority, circular_number, circular_status, date_received,
                         days_pending, notes, created_by)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        VALUES (%s,%s,%s,%s,%s,%s)
                     """, (row.get('store_id'), row.get('plate_number'), row.get('brand_model'), row.get('emirate'),
                           row.get('yard'), row.get('car_status'), row.get('circular_type'), row.get('circular_authority'),
                           row.get('circular_number'), row.get('circular_status'), row.get('date_received'),
