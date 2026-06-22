@@ -17,19 +17,15 @@ def get_connection():
 def init_db():
     conn = get_connection()
     cur = conn.cursor()
-
     try:
-        # جدول اليوزرات
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 username TEXT UNIQUE,
                 password TEXT,
-                role TEXT
+                role TEXT DEFAULT 'user'
             )
         """)
-
-        # جدول التعاميم
         cur.execute("""
             CREATE TABLE IF NOT EXISTS circulars (
                 id SERIAL PRIMARY KEY,
@@ -50,15 +46,7 @@ def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-
-        # مدير افتراضي
-        cur.execute("SELECT * FROM users WHERE username='admin'")
-        if not cur.fetchone():
-            hashed = hashlib.sha256('admin123'.encode()).hexdigest()
-            cur.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)",
-                        ('admin', hashed, 'مدير'))
         conn.commit()
-
     except Exception as e:
         conn.rollback()
         st.error(f"خطأ في قاعدة البيانات: {e}")
@@ -103,6 +91,137 @@ else:
         st.rerun()
 
     st.title("🚗 نظام إدارة تعاميم السيارات")
-    st.success("النظام شغال على Supabase ☁ | الحساب: admin / admin123")
+    st.success("النظام شغال على Supabase ☁")
 
-    st.write("كمل باقي التبويبات هنا...")
+    # --- التبويبات ---
+    tab1, tab2, tab3, tab4 = st.tabs(["➕ إضافة تعميم", "📋 عرض التعاميم", "📥 استيراد Excel", "👥 إدارة المستخدمين"])
+
+    # تبويب 1: إضافة تعميم
+    with tab1:
+        st.subheader("إضافة تعميم جديد")
+        with st.form("add_circular"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                store_id = st.text_input("رقم المتجر")
+                plate_number = st.text_input("رقم اللوحة")
+                brand_model = st.text_input("الماركة والموديل")
+                emirate = st.selectbox("الإمارة", ["دبي", "أبوظبي", "الشارقة", "عجمان", "أم القيوين", "رأس الخيمة", "الفجيرة"])
+            with col2:
+                yard = st.text_input("الساحة")
+                car_status = st.selectbox("حالة السيارة", ["موجودة", "مباعة", "في الورشة", "محجوزة"])
+                circular_type = st.selectbox("نوع التعميم", ["حجز", "منع بيع", "استعلام", "مخالفة"])
+                circular_authority = st.text_input("جهة التعميم")
+            with col3:
+                circular_number = st.text_input("رقم التعميم")
+                circular_status = st.selectbox("حالة التعميم", ["مفتوح", "مغلق", "قيد المعالجة"])
+                date_received = st.date_input("تاريخ الاستلام", value=date.today())
+                notes = st.text_area("ملاحظات")
+
+            if st.form_submit_button("حفظ التعميم"):
+                days_pending = (date.today() - date_received).days
+                conn = get_connection()
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
+                    circular_type, circular_authority, circular_number, circular_status, date_received,
+                    days_pending, notes, created_by)
+                    VALUES (%s,%s,%s,%s,%s,%s)
+                """, (store_id, plate_number, brand_model, emirate, yard, car_status, circular_type,
+                      circular_authority, circular_number, circular_status, date_received, days_pending,
+                      notes, st.session_state.username))
+                conn.commit()
+                cur.close()
+                conn.close()
+                st.success("تم حفظ التعميم بنجاح ✅")
+                st.rerun()
+
+    # تبويب 2: عرض التعاميم
+    with tab2:
+        st.subheader("كل التعاميم")
+        conn = get_connection()
+        df = pd.read_sql_query("SELECT * FROM circulars ORDER BY created_at DESC", conn)
+        conn.close()
+
+        # فلترة
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            filter_emirate = st.selectbox("فلترة بالإمارة", ["الكل"] + list(df['emirate'].dropna().unique()))
+        with col2:
+            filter_status = st.selectbox("فلترة بالحالة", ["الكل"] + list(df['circular_status'].dropna().unique()))
+        with col3:
+            search_plate = st.text_input("بحث برقم اللوحة")
+
+        if filter_emirate!= "الكل":
+            df = df[df['emirate'] == filter_emirate]
+        if filter_status!= "الكل":
+            df = df[df['circular_status'] == filter_status]
+        if search_plate:
+            df = df[df['plate_number'].str.contains(search_plate, na=False)]
+
+        st.dataframe(df, use_container_width=True)
+
+        # تصدير PDF
+        if st.button("📄 تصدير PDF"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.add_font('Arial', '', 'arial.ttf', uni=True)
+            pdf.set_font('Arial', size=12)
+            pdf.cell(200, 10, txt="تقرير التعاميم", ln=True, align='C')
+            pdf.ln(10)
+            for index, row in df.iterrows():
+                pdf.cell(200, 8, txt=f"لوحة: {row['plate_number']} | نوع: {row['circular_type']} | حالة: {row['circular_status']}", ln=True, align='R')
+            pdf_output = io.BytesIO()
+            pdf.output(pdf_output)
+            st.download_button("تحميل PDF", data=pdf_output.getvalue(), file_name="circulars.pdf", mime="application/pdf")
+
+    # تبويب 3: استيراد Excel
+    with tab3:
+        st.subheader("استيراد من ملف Excel")
+        uploaded_file = st.file_uploader("اختار ملف Excel", type=['xlsx', 'xls'])
+        if uploaded_file:
+            df_excel = pd.read_excel(uploaded_file)
+            st.write("معاينة البيانات:")
+            st.dataframe(df_excel.head())
+
+            if st.button("استيراد للبيانات"):
+                conn = get_connection()
+                cur = conn.cursor()
+                for index, row in df_excel.iterrows():
+                    days_pending = (date.today() - row['date_received'].date()).days if pd.notna(row['date_received']) else 0
+                    cur.execute("""
+                        INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
+                        circular_type, circular_authority, circular_number, circular_status, date_received,
+                        days_pending, notes, created_by)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                    """, (row.get('store_id'), row.get('plate_number'), row.get('brand_model'), row.get('emirate'),
+                          row.get('yard'), row.get('car_status'), row.get('circular_type'), row.get('circular_authority'),
+                          row.get('circular_number'), row.get('circular_status'), row.get('date_received'),
+                          days_pending, row.get('notes'), st.session_state.username))
+                conn.commit()
+                cur.close()
+                conn.close()
+                st.success(f"تم استيراد {len(df_excel)} صف بنجاح ✅")
+
+    # تبويب 4: إدارة المستخدمين - للأدمن فقط
+    with tab4:
+        if st.session_state.role == 'admin':
+            st.subheader("إضافة مستخدم جديد")
+            with st.form("add_user"):
+                new_username = st.text_input("اسم المستخدم الجديد")
+                new_password = st.text_input("كلمة المرور", type="password")
+                new_role = st.selectbox("الصلاحية", ["user", "admin"])
+                if st.form_submit_button("إضافة"):
+                    conn = get_connection()
+                    cur = conn.cursor()
+                    hashed = hashlib.sha256(new_password.encode()).hexdigest()
+                    try:
+                        cur.execute("INSERT INTO users (username, password, role) VALUES (%s, %s, %s)",
+                                    (new_username, hashed, new_role))
+                        conn.commit()
+                        st.success("تم إضافة المستخدم ✅")
+                    except psycopg2.IntegrityError:
+                        st.error("اسم المستخدم موجود مسبقاً")
+                    cur.close()
+                    conn.close()
+        else:
+            st.warning("هذه الصفحة للأدمن فقط")
