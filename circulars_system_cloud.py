@@ -125,7 +125,7 @@ else:
                     INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
                     circular_type, circular_authority, circular_number, circular_status, date_received,
                     days_pending, notes, created_by)
-                    VALUES (%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (store_id, plate_number, brand_model, emirate, yard, car_status, circular_type,
                       circular_authority, circular_number, circular_status, date_received, days_pending,
                       notes, st.session_state.username))
@@ -192,7 +192,7 @@ else:
                         INSERT INTO circulars (store_id, plate_number, brand_model, emirate, yard, car_status,
                         circular_type, circular_authority, circular_number, circular_status, date_received,
                         days_pending, notes, created_by)
-                        VALUES (%s,%s,%s,%s,%s,%s)
+                        VALUES (%s,%s,%s,%s)
                     """, (row.get('store_id'), row.get('plate_number'), row.get('brand_model'), row.get('emirate'),
                           row.get('yard'), row.get('car_status'), row.get('circular_type'), row.get('circular_authority'),
                           row.get('circular_number'), row.get('circular_status'), row.get('date_received'),
