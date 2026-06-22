@@ -13,7 +13,6 @@ DB_URL = st.secrets["DB_URL"]
 st.set_page_config(page_title="نظام التعاميم", layout="wide")
 
 # --- الاتصال بقاعدة البيانات ---
-@st.cache_resource
 def init_db():
     conn = psycopg2.connect(DB_URL)
     conn.autocommit = True
