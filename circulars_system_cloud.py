@@ -18,17 +18,24 @@ def get_connection():
     return psycopg2.connect(DB_URL)
 
 def init_db():
-    conn = get_connection()
+    conn = psycopg2.connect(DB_URL)
+    conn.autocommit = True  # هذا السطر المهم
     cur = conn.cursor()
-    # جدول المستخدمين
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username TEXT UNIQUE,
-            password TEXT,
-            role TEXT
-        )
-    """)
+    
+    try:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE,
+                password TEXT
+            )
+        """)
+    except Exception as e:
+        conn.rollback()  # لو صار خطأ يتراجع
+        print(e)
+    finally:
+        cur.close()
+        conn.close()
     # جدول التعاميم
     cur.execute("""
         CREATE TABLE IF NOT EXISTS circulars (
