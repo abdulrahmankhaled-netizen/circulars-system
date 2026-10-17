@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        {% if user %}
+            <i class="bi bi-pencil-square text-warning"></i> {{ title }}
+        {% else %}
+            <i class="bi bi-person-plus-fill text-success"></i> {{ title }}
+        {% endif %}
+    </h3>
+    <a href="{{ url_for('users.list_users') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع للقائمة
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <form method="POST" novalidate class="card shadow-sm border-0">
+            {{ form.hidden_tag() }}
+
+            <!-- البيانات الأساسية -->
+            <div class="card-body">
+                <h6 class="text-primary border-bottom pb-2 mb-3">
+                    <i class="bi bi-person-vcard"></i> البيانات الأساسية
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.full_name.label(class="form-label fw-bold") }}
+                        {{ form.full_name(class="form-control", placeholder="مثال: محمد أحمد") }}
+                        {% for e in form.full_name.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.username.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            <span class="input-group-text">@</span>
+                            {{ form.username(class="form-control", placeholder="mohammed") }}
+                        </div>
+                        {% for e in form.username.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                        <small class="text-muted">يُستخدم لتسجيل الدخول</small>
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.email.label(class="form-label fw-bold") }}
+                        {{ form.email(class="form-control", placeholder="user@example.com") }}
+                        {% for e in form.email.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.phone.label(class="form-label fw-bold") }}
+                        {{ form.phone(class="form-control", placeholder="+971 50 1234567") }}
+                    </div>
+                </div>
+
+                <!-- الصلاحيات -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-shield-check"></i> الصلاحيات والقسم
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.role_id.label(class="form-label fw-bold") }}
+                        {{ form.role_id(class="form-select") }}
+                        {% for e in form.role_id.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                        <small class="text-muted">يحدد صلاحيات المستخدم في النظام</small>
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.department.label(class="form-label fw-bold") }}
+                        {{ form.department(class="form-control", placeholder="مثال: إدارة النقل") }}
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            {{ form.is_active(class="form-check-input", id="isActive") }}
+                            {{ form.is_active.label(class="form-check-label fw-bold", for="isActive") }}
+                            <small class="text-muted d-block">
+                                إذا كان معطّلاً، لن يستطيع المستخدم الدخول.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- كلمة المرور -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-lock"></i> كلمة المرور
+                    {% if user %}
+                        <small class="text-muted fw-normal">(اتركها فارغة لعدم التغيير)</small>
+                    {% endif %}
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.password.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            {{ form.password(class="form-control", id="pwd",
+                                             placeholder="6 أحرف على الأقل") }}
+                            <button type="button" class="btn btn-outline-secondary"
+                                    onclick="togglePwd('pwd', this)">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% for e in form.password.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.password_confirm.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            {{ form.password_confirm(class="form-control", id="pwd2",
+                                                      placeholder="أعد كتابة كلمة المرور") }}
+                            <button type="button" class="btn btn-outline-secondary"
+                                    onclick="togglePwd('pwd2', this)">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        {% for e in form.password_confirm.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- الأزرار -->
+            <div class="card-footer bg-light d-flex justify-content-between flex-wrap gap-2">
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="bi bi-check2-circle"></i>
+                    {{ 'حفظ التعديلات' if user else 'إنشاء المستخدم' }}
+                </button>
+                <a href="{{ url_for('users.list_users') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> إلغاء
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function togglePwd(id, btn) {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    const isPwd = inp.type === 'password';
+    inp.type = isPwd ? 'text' : 'password';
+    btn.innerHTML = isPwd
+        ? '<i class="bi bi-eye-slash"></i>'
+        : '<i class="bi bi-eye"></i>';
+}
+</script>
+
+{% endblock %}

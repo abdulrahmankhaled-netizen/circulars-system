@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}الفواتير حسب الشهر{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-calendar-group text-primary"></i>
+        الفواتير حسب الشهر والمورد
+    </h3>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('invoices.list_invoices') }}" class="btn btn-outline-primary">
+            <i class="bi bi-list"></i> عرض عادي
+        </a>
+        <a href="{{ url_for('invoices.add_invoice') }}" class="btn btn-success">
+            <i class="bi bi-plus-lg"></i> فاتورة جديدة
+        </a>
+    </div>
+</div>
+
+{% for month in grouped %}
+<div class="card shadow-sm mb-4 border-0">
+    <!-- رأس الشهر -->
+    <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-calendar-event"></i>
+            {{ month.month_label }}
+        </h5>
+        <div>
+            <span class="badge bg-white text-dark me-2">
+                {{ month.count }} فاتورة
+            </span>
+            <strong class="fs-5">
+                {{ "{:,.2f}".format(month.total) }} AED
+            </strong>
+        </div>
+    </div>
+
+    <div class="card-body p-0">
+        {% for sup in month.suppliers %}
+        <div class="border-bottom">
+            <!-- رأس المورد -->
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light">
+                <div>
+                    <strong>
+                        <i class="bi bi-building text-primary"></i>
+                        {% if sup.supplier %}
+                            <a href="{{ url_for('suppliers.view_supplier', sid=sup.supplier.id) }}"
+                               class="text-decoration-none">
+                                {{ sup.supplier.company_name_ar }}
+                            </a>
+                        {% else %}
+                            — بدون مورد —
+                        {% endif %}
+                    </strong>
+                    <span class="badge bg-secondary ms-2">{{ sup.count }} فاتورة</span>
+                </div>
+                <div class="fw-bold text-success">
+                    {{ "{:,.2f}".format(sup.total) }} AED
+                </div>
+            </div>
+
+            <!-- جدول فواتير المورد -->
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>رقم الفاتورة</th>
+                            <th class="text-center">الإصدار</th>
+                            <th class="text-end">قبل الضريبة</th>
+                            <th class="text-end">الضريبة</th>
+                            <th class="text-end">الإجمالي</th>
+                            <th class="text-center">الحالة</th>
+                            <th class="text-center" style="width: 80px;">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in sup.invoices %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <a href="{{ url_for('invoices.view_invoice', iid=inv.id) }}"
+                                   class="text-decoration-none">
+                                    <code>{{ inv.invoice_number }}</code>
+                                </a>
+                            </td>
+                            <td class="text-center">
+                                <small>{{ inv.issue_date.strftime('%Y-%m-%d') if inv.issue_date else '—' }}</small>
+                            </td>
+                            <td class="text-end">{{ "{:,.2f}".format(inv.amount or 0) }}</td>
+                            <td class="text-end text-warning">{{ "{:,.2f}".format(inv.vat_amount or 0) }}</td>
+                            <td class="text-end fw-bold text-success">
+                                {{ "{:,.2f}".format(inv.total_amount or 0) }}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-{{ inv.status_color() }}">
+                                    {{ inv.status_label() }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('invoices.view_invoice', iid=inv.id) }}"
+                                   class="btn btn-sm btn-info btn-icon-only">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info text-center py-5">
+    <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+    <h5>لا توجد فواتير بعد</h5>
+    <p class="mb-0">الفواتير التي لها تاريخ إصدار ستظهر هنا مجمّعة.</p>
+</div>
+{% endfor %}
+
+<!-- فواتير بدون تاريخ -->
+{% if no_date %}
+<div class="card shadow-sm border-warning">
+    <div class="card-header bg-warning">
+        <h6 class="mb-0">
+            <i class="bi bi-exclamation-triangle"></i>
+            فواتير بدون تاريخ إصدار
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>رقم الفاتورة</th>
+                    <th>المورد</th>
+                    <th class="text-end">الإجمالي</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in no_date %}
+                <tr>
+                    <td><code>{{ inv.invoice_number }}</code></td>
+                    <td>{{ inv.supplier.company_name_ar if inv.supplier else '—' }}</td>
+                    <td class="text-end">{{ "{:,.2f}".format(inv.total_amount or 0) }}</td>
+                    <td class="text-center">
+                        <a href="{{ url_for('invoices.edit_invoice', iid=inv.id) }}"
+                           class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil"></i> إضافة تاريخ
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+}
+</style>
+
+{% endblock %}

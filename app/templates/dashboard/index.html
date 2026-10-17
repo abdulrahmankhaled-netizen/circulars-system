@@ -1,0 +1,909 @@
+{% extends "base.html" %}
+{% block title %}لوحة التحكم الذكية{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Header -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-cpu text-primary"></i> لوحة التحكم الذكية
+        </h3>
+        <small class="text-muted">
+            <i class="bi bi-clock"></i> آخر تحديث: {{ now.strftime('%Y-%m-%d %H:%M') }}
+        </small>
+    </div>
+    <button onclick="location.reload()" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-clockwise"></i> تحديث
+    </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Health Score + Insights Summary -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <!-- Health Score -->
+    <div class="col-lg-3">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">صحة النظام</h6>
+                <div style="position: relative; height: 150px;">
+                    <canvas id="healthGauge"></canvas>
+                    <div class="position-absolute top-50 start-50 translate-middle text-center" style="margin-top: 30px;">
+                        <h2 class="mb-0 fw-bold text-{{ health.color }}">{{ health.overall }}</h2>
+                        <small class="text-muted">{{ health.emoji }} {{ health.level }}</small>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-center small">
+                    <div class="col-6 mb-1">
+                        <div class="text-muted">مالي</div>
+                        <strong class="text-primary">{{ health.financial }}</strong>
+                    </div>
+                    <div class="col-6 mb-1">
+                        <div class="text-muted">تحصيل</div>
+                        <strong class="text-success">{{ health.collection }}</strong>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">مخاطر</div>
+                        <strong class="text-warning">{{ health.risk }}</strong>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted">تشغيل</div>
+                        <strong class="text-info">{{ health.operational }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPIs المالية -->
+    <div class="col-lg-9">
+        <div class="row g-3">
+            <!-- الإيرادات -->
+            <div class="col-md-6 col-xl-3">
+                <div class="card kpi-card kpi-primary border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="text-white-50 small">
+                            <i class="bi bi-cash-stack"></i> الإيرادات (الكل)
+                        </div>
+                        <h3 class="mb-0 text-white fw-bold">
+                            {{ "{:,.0f}".format(kpis.total.revenue) }}
+                        </h3>
+                        <small class="text-white-50">AED</small>
+                        <hr class="my-2 bg-white-50">
+                        <small class="text-white-50 d-flex justify-content-between">
+                            <span>هذا الشهر: {{ "{:,.0f}".format(kpis.this_month.revenue) }}</span>
+                            <span class="badge bg-{{ 'success' if kpis.trends.revenue >= 0 else 'danger' }}">
+                                {{ '%+.0f'|format(kpis.trends.revenue) }}%
+                                <i class="bi bi-{{ 'arrow-up' if kpis.trends.revenue >= 0 else 'arrow-down' }}"></i>
+                            </span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- التكاليف -->
+            <div class="col-md-6 col-xl-3">
+                <div class="card kpi-card kpi-warning border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="text-white-50 small">
+                            <i class="bi bi-receipt"></i> التكاليف (الكل)
+                        </div>
+                        <h3 class="mb-0 text-white fw-bold">
+                            {{ "{:,.0f}".format(kpis.total.cost) }}
+                        </h3>
+                        <small class="text-white-50">AED</small>
+                        <hr class="my-2 bg-white-50">
+                        <small class="text-white-50 d-flex justify-content-between">
+                            <span>هذا الشهر: {{ "{:,.0f}".format(kpis.this_month.cost) }}</span>
+                            <span class="badge bg-{{ 'danger' if kpis.trends.cost >= 0 else 'success' }}">
+                                {{ '%+.0f'|format(kpis.trends.cost) }}%
+                                <i class="bi bi-{{ 'arrow-up' if kpis.trends.cost >= 0 else 'arrow-down' }}"></i>
+                            </span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- الربح -->
+            <div class="col-md-6 col-xl-3">
+                <div class="card kpi-card {{ 'kpi-success' if kpis.total.profit >= 0 else 'kpi-danger' }} border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="text-white-50 small">
+                            <i class="bi bi-graph-up-arrow"></i> صافي الربح
+                        </div>
+                        <h3 class="mb-0 text-white fw-bold">
+                            {{ "{:,.0f}".format(kpis.total.profit) }}
+                        </h3>
+                        <small class="text-white-50">هامش: {{ kpis.total.margin }}%</small>
+                        <hr class="my-2 bg-white-50">
+                        <small class="text-white-50 d-flex justify-content-between">
+                            <span>هذا الشهر: {{ "{:,.0f}".format(kpis.this_month.profit) }}</span>
+                            <span class="badge bg-{{ 'success' if kpis.trends.profit >= 0 else 'danger' }}">
+                                {{ '%+.0f'|format(kpis.trends.profit) }}%
+                                <i class="bi bi-{{ 'arrow-up' if kpis.trends.profit >= 0 else 'arrow-down' }}"></i>
+                            </span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- المخاطر -->
+            <div class="col-md-6 col-xl-3">
+                <div class="card kpi-card kpi-{{ risks.color }} border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="text-white-50 small">
+                            <i class="bi bi-shield-exclamation"></i> مؤشر المخاطر
+                        </div>
+                        <h3 class="mb-0 text-white fw-bold">
+                            {{ risks.total_score }}<small>/100</small>
+                        </h3>
+                        <small class="text-white-50">{{ risks.level }}</small>
+                        <hr class="my-2 bg-white-50">
+                        <small class="text-white-50 d-flex justify-content-between">
+                            <span>{{ risks.expired_contracts + risks.expiring_contracts }} عقود</span>
+                            <span>{{ risks.overdue_invoices }} فواتير</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Smart Insights — توصيات ذكية -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+{% if insights %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-gradient-dark text-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+            <i class="bi bi-lightbulb-fill text-warning"></i>
+            توصيات وتحليلات ذكية
+            <span class="badge bg-warning text-dark ms-2">{{ insights|length }}</span>
+        </h6>
+        <small class="opacity-75">مدعوم بالذكاء الاصطناعي</small>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% for ins in insights %}
+            <div class="col-md-6">
+                <div class="alert alert-{{ ins.type }} mb-0 h-100">
+                    <div class="d-flex gap-2">
+                        <i class="bi bi-{{ ins.icon }} fs-4"></i>
+                        <div>
+                            <strong class="d-block">{{ ins.title }}</strong>
+                            <small>{{ ins.message }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Charts Row 1: Revenue + Projects -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <!-- الإيرادات الشهرية -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <h6 class="mb-0">
+                    <i class="bi bi-graph-up text-primary"></i> الأداء الشهري (12 شهر)
+                </h6>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 320px;">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- التنبؤ -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <h6 class="mb-0">
+                    <i class="bi bi-crystal-ball text-info"></i> التنبؤ المستقبلي
+                </h6>
+                <span class="badge bg-{{ predictions.trend_color }}">
+                    {{ predictions.trend_label }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 320px;">
+                    <canvas id="predictionChart"></canvas>
+                </div>
+                {% if predictions.confidence > 0 %}
+                <div class="alert alert-info py-2 mt-3 mb-0 small">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>مستوى الثقة:</strong> {{ predictions.confidence }}%
+                    {% if predictions.slope != 0 %}
+                        — التغير: {{ "{:+,.0f}".format(predictions.slope) }} AED/شهر
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Charts Row 2: Projects + Equipment -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <!-- المهام حسب المشاريع -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-bar-chart-fill text-success"></i>
+                    المهام حسب المشاريع (العقود)
+                </h6>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 320px;">
+                    <canvas id="projectsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- المهام حسب المعدة -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-pie-chart-fill text-info"></i>
+                    توزيع المهام حسب المعدة
+                </h6>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 320px;">
+                    <canvas id="equipmentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Charts Row 3: Payment Status -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-credit-card text-warning"></i>
+                    حالة الدفع للموردين
+                </h6>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px;">
+                    <canvas id="supplierPaymentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-receipt text-primary"></i>
+                    حالة الفواتير للعملاء
+                </h6>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px;">
+                    <canvas id="customerPaymentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Top Suppliers & Drivers Tables -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+    <!-- أفضل الموردين -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <h6 class="mb-0">
+                    <i class="bi bi-trophy-fill text-warning"></i> أفضل الموردين
+                </h6>
+                <a href="{{ url_for('suppliers.list_suppliers') }}"
+                   class="btn btn-sm btn-outline-primary">عرض الكل</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>المورد</th>
+                            <th class="text-center">المهام</th>
+                            <th class="text-end">الربح</th>
+                            <th class="text-center">الهامش</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in suppliers %}
+                        <tr>
+                            <td>
+                                {% if loop.index == 1 %}🥇
+                                {% elif loop.index == 2 %}🥈
+                                {% elif loop.index == 3 %}🥉
+                                {% else %}{{ loop.index }}{% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('suppliers.view_supplier', sid=s.id) }}">
+                                    <strong>{{ s.name }}</strong>
+                                </a>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">{{ s.missions }}</span>
+                            </td>
+                            <td class="text-end fw-bold {{ 'text-success' if s.profit >= 0 else 'text-danger' }}">
+                                {{ "{:+,.0f}".format(s.profit) }}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-{{ 'success' if s.margin >= 20 else 'warning' if s.margin >= 10 else 'danger' }}">
+                                    {{ s.margin }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">لا توجد بيانات</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- أفضل السائقين -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-person-badge-fill text-success"></i> أفضل السائقين
+                </h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>السائق</th>
+                            <th class="text-center">المهام</th>
+                            <th class="text-end">الإيراد</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in drivers %}
+                        <tr>
+                            <td>
+                                {% if loop.index == 1 %}🥇
+                                {% elif loop.index == 2 %}🥈
+                                {% elif loop.index == 3 %}🥉
+                                {% else %}{{ loop.index }}{% endif %}
+                            </td>
+                            <td><strong>{{ d.name[:40] }}</strong></td>
+                            <td class="text-center">
+                                <span class="badge bg-info">{{ d.missions }}</span>
+                            </td>
+                            <td class="text-end text-success fw-bold">
+                                {{ "{:,.0f}".format(d.revenue) }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted py-3">لا توجد بيانات</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Risks Panel -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-{{ risks.color }} text-white d-flex justify-content-between">
+        <h6 class="mb-0">
+            <i class="bi bi-shield-exclamation"></i>
+            تحليل المخاطر الشامل
+        </h6>
+        <span class="badge bg-white text-{{ risks.color }}">{{ risks.level }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="text-center p-3 border rounded">
+                    <h3 class="mb-0 text-{{ 'danger' if risks.expired_contracts > 0 else 'success' }}">
+                        {{ risks.expired_contracts }}
+                    </h3>
+                    <small class="text-muted d-block">عقود منتهية</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 border rounded">
+                    <h3 class="mb-0 text-{{ 'warning' if risks.expiring_contracts > 0 else 'success' }}">
+                        {{ risks.expiring_contracts }}
+                    </h3>
+                    <small class="text-muted d-block">عقود تنتهي قريباً</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 border rounded">
+                    <h3 class="mb-0 text-{{ 'danger' if risks.expired_licenses > 0 else 'success' }}">
+                        {{ risks.expired_licenses }}
+                    </h3>
+                    <small class="text-muted d-block">رخص منتهية</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 border rounded">
+                    <h3 class="mb-0 text-{{ 'danger' if risks.overdue_invoices > 0 else 'success' }}">
+                        {{ risks.overdue_invoices }}
+                    </h3>
+                    <small class="text-muted d-block">فواتير متأخرة</small>
+                </div>
+            </div>
+        </div>
+
+        {% if risks.unpaid_total > 0 %}
+        <div class="alert alert-{{ risks.color }} mt-3 mb-0">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>مبالغ غير محصّلة:</strong>
+            {{ "{:,.0f}".format(risks.unpaid_total) }} AED
+            <a href="{{ url_for('notifications.index') }}" class="alert-link ms-2">
+                → عرض التفاصيل
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Recent Missions -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white d-flex justify-content-between">
+        <h6 class="mb-0">
+            <i class="bi bi-clock-history text-primary"></i> آخر المهام
+        </h6>
+        <a href="{{ url_for('missions.list_missions') }}" class="btn btn-sm btn-outline-primary">
+            عرض الكل
+        </a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>رقم المهمة</th>
+                    <th>التاريخ</th>
+                    <th>المعدة</th>
+                    <th class="text-center">اللوحة</th>
+                    <th class="text-end">التكلفة</th>
+                    <th class="text-end">الإيراد</th>
+                    <th class="text-end">الربح</th>
+                    <th class="text-center">الحالة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in recent_missions %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('missions.view_mission', mid=m.id) }}">
+                            <code class="text-primary">{{ m.mission_number }}</code>
+                        </a>
+                    </td>
+                    <td><small>{{ m.mission_date.strftime('%Y-%m-%d') if m.mission_date else '—' }}</small></td>
+                    <td><small>{{ m.equipment_name_ar() }}</small></td>
+                    <td class="text-center">
+                        {% if m.vehicle_plate %}
+                            <span class="badge bg-primary">{{ m.vehicle_plate[:15] }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end text-warning">{{ "{:,.0f}".format(m.cost or 0) }}</td>
+                    <td class="text-end text-primary">{{ "{:,.0f}".format(m.revenue or 0) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if (m.profit or 0) >= 0 else 'text-danger' }}">
+                        {{ "{:+,.0f}".format(m.profit or 0) }}
+                    </td>
+                    <td class="text-center">{{ m.status | state_badge('mission') | safe }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-3">لا توجد مهام</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Quick Actions -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white">
+        <h6 class="mb-0"><i class="bi bi-lightning-charge-fill text-warning"></i> إجراءات سريعة</h6>
+    </div>
+    <div class="card-body d-flex flex-wrap gap-2">
+        <a href="{{ url_for('missions.upload_excel') }}" class="btn btn-outline-success">
+            <i class="bi bi-cloud-upload"></i> رفع Excel
+        </a>
+        <a href="{{ url_for('missions.add_mission') }}" class="btn btn-outline-primary">
+            <i class="bi bi-truck"></i> مهمة جديدة
+        </a>
+        <a href="{{ url_for('invoices.add_invoice') }}" class="btn btn-outline-warning">
+            <i class="bi bi-receipt"></i> فاتورة جديدة
+        </a>
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline-info">
+            <i class="bi bi-file-bar-graph"></i> التقارير
+        </a>
+        <a href="{{ url_for('notifications.index') }}" class="btn btn-outline-danger">
+            <i class="bi bi-bell"></i> التنبيهات
+        </a>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Scripts -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+<script>
+// إعدادات عامة: إظهار الأرقام على الرسوم البيانية
+Chart.register(ChartDataLabels);
+Chart.defaults.font.family = "'Segoe UI', Tahoma, Arial, sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#333';
+
+// ═══════════════════════════════════════════════════════════
+// 1. Health Gauge
+// ═══════════════════════════════════════════════════════════
+new Chart(document.getElementById('healthGauge'), {
+    type: 'doughnut',
+    data: {
+        labels: ['', ''],
+        datasets: [{
+            data: [{{ health.overall }}, {{ 100 - health.overall }}],
+            backgroundColor: [
+                '{{ "#10b981" if health.color == "success" else "#3b82f6" if health.color == "info" else "#f59e0b" if health.color == "warning" else "#ef4444" }}',
+                '#e5e7eb'
+            ],
+            borderWidth: 0,
+            circumference: 220,
+            rotation: 250,
+            cutout: '75%'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false },
+            datalabels: { display: false }
+        }
+    }
+});
+
+// ═══════════════════════════════════════════════════════════
+// 2. Monthly Chart
+// ═══════════════════════════════════════════════════════════
+new Chart(document.getElementById('monthlyChart'), {
+    type: 'line',
+    data: {
+        labels: {{ monthly.labels | tojson }},
+        datasets: [
+            {
+                label: 'الإيرادات',
+                data: {{ monthly.revenue | tojson }},
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4,
+                pointBackgroundColor: '#3b82f6'
+            },
+            {
+                label: 'التكاليف',
+                data: {{ monthly.cost | tojson }},
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4,
+                pointBackgroundColor: '#f59e0b'
+            },
+            {
+                label: 'الربح',
+                data: {{ monthly.profit | tojson }},
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4,
+                pointBackgroundColor: '#10b981',
+                borderDash: [5, 5]
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' },
+            datalabels: { display: false },
+            tooltip: {
+                callbacks: {
+                    label: function(ctx) {
+                        return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString() + ' AED';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'K' : v
+                }
+            }
+        }
+    }
+});
+
+// ═══════════════════════════════════════════════════════════
+// 3. Prediction Chart
+// ═══════════════════════════════════════════════════════════
+const predLabels = {{ predictions.labels | tojson }};
+const predValues = {{ predictions['values'] | tojson }};
+
+if (predLabels.length > 0) {
+    new Chart(document.getElementById('predictionChart'), {
+        type: 'bar',
+        data: {
+            labels: predLabels,
+            datasets: [{
+                label: 'الإيرادات المتوقعة',
+                data: predValues,
+                backgroundColor: predValues.map((_, i) =>
+                    ['rgba(59, 130, 246, 0.7)', 'rgba(139, 92, 246, 0.7)', 'rgba(236, 72, 153, 0.7)'][i]
+                ),
+                borderColor: ['#3b82f6', '#8b5cf6', '#ec4899'],
+                borderWidth: 2,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'top',
+                    color: '#1f4e78',
+                    font: { weight: 'bold', size: 13 },
+                    formatter: v => v >= 1000 ? (v/1000).toFixed(1) + 'K' : v.toFixed(0)
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => 'متوقع: ' + ctx.parsed.y.toLocaleString() + ' AED'
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'K' : v }
+                }
+            }
+        }
+    });
+} else {
+    document.getElementById('predictionChart').parentElement.innerHTML =
+        '<p class="text-center text-muted py-5">لا توجد بيانات كافية للتنبؤ</p>';
+}
+
+// ═══════════════════════════════════════════════════════════
+// 4. Projects Chart — المهام حسب المشاريع
+// ═══════════════════════════════════════════════════════════
+const projects = {{ projects | tojson }};
+if (projects.length > 0) {
+    new Chart(document.getElementById('projectsChart'), {
+        type: 'bar',
+        data: {
+            labels: projects.slice(0, 10).map(p => p.number),
+            datasets: [
+                {
+                    label: 'عدد المهام',
+                    data: projects.slice(0, 10).map(p => p.missions),
+                    backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                    borderColor: '#10b981',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'top',
+                    color: '#059669',
+                    font: { weight: 'bold', size: 13 },
+                    formatter: v => v
+                },
+                tooltip: {
+                    callbacks: {
+                        title: items => projects[items[0].dataIndex].number,
+                        label: function(ctx) {
+                            const p = projects[ctx.dataIndex];
+                            return [
+                                'المهام: ' + p.missions,
+                                'المورد: ' + p.supplier,
+                                'الإيراد: ' + p.revenue.toLocaleString() + ' AED',
+                                'الربح: ' + p.profit.toLocaleString() + ' AED'
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+} else {
+    document.getElementById('projectsChart').parentElement.innerHTML =
+        '<p class="text-center text-muted py-5">لا توجد مشاريع بعد</p>';
+}
+
+// ═══════════════════════════════════════════════════════════
+// 5. Equipment Doughnut
+// ═══════════════════════════════════════════════════════════
+const equipment = {{ equipment | tojson }};
+if (equipment.length > 0) {
+    new Chart(document.getElementById('equipmentChart'), {
+        type: 'doughnut',
+        data: {
+            labels: equipment.map(e => e.name),
+            datasets: [{
+                data: equipment.map(e => e.count),
+                backgroundColor: [
+                    '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+                    '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+                },
+                datalabels: {
+                    color: '#fff',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: (v, ctx) => {
+                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        const pct = (v / total * 100).toFixed(0);
+                        return pct >= 8 ? v : '';
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = (ctx.parsed / total * 100).toFixed(1);
+                            return ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+} else {
+    document.getElementById('equipmentChart').parentElement.innerHTML =
+        '<p class="text-center text-muted py-5">لا توجد بيانات</p>';
+}
+
+// ═══════════════════════════════════════════════════════════
+// 6. Supplier Payment Doughnut
+// ═══════════════════════════════════════════════════════════
+new Chart(document.getElementById('supplierPaymentChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['مدفوع', 'معلّق', 'ملغي'],
+        datasets: [{
+            data: [
+                {{ payment.supplier.paid }},
+                {{ payment.supplier.pending }},
+                {{ payment.supplier.cancelled }}
+            ],
+            backgroundColor: ['#10b981', '#f59e0b', '#94a3b8'],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' },
+            datalabels: {
+                color: '#fff',
+                font: { weight: 'bold', size: 13 },
+                formatter: v => v > 0 ? v : ''
+            }
+        }
+    }
+});
+
+// ═══════════════════════════════════════════════════════════
+// 7. Customer Payment Doughnut
+// ═══════════════════════════════════════════════════════════
+new Chart(document.getElementById('customerPaymentChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['مدفوع', 'بانتظار', 'مفوتر', 'ملغي'],
+        datasets: [{
+            data: [
+                {{ payment.customer.paid }},
+                {{ payment.customer.pending }},
+                {{ payment.customer.invoiced }},
+                {{ payment.customer.cancelled }}
+            ],
+            backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#94a3b8'],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' },
+            datalabels: {
+                color: '#fff',
+                font: { weight: 'bold', size: 13 },
+                formatter: v => v > 0 ? v : ''
+            }
+        }
+    }
+});
+</script>
+
+<style>
+.kpi-card h3 { font-size: 1.5rem; }
+.card-header.bg-gradient-dark {
+    background: linear-gradient(135deg, #1f2937, #111827);
+}
+</style>
+
+{% endblock %}

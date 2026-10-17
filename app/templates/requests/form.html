@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        {% if req %}
+            <i class="bi bi-pencil-square text-warning"></i> {{ title }}
+        {% else %}
+            <i class="bi bi-clipboard-plus text-success"></i> {{ title }}
+        {% endif %}
+    </h3>
+    <a href="{{ url_for('requests.list_requests') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <form method="POST" novalidate class="card shadow-sm border-0">
+            {{ form.hidden_tag() }}
+
+            <div class="card-body">
+
+                <!-- ============ البيانات الأساسية ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3">
+                    <i class="bi bi-info-circle"></i> البيانات الأساسية
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        {{ form.title.label(class="form-label fw-bold") }}
+                        {{ form.title(class="form-control",
+                                       placeholder="مثال: نقل معدات ثقيلة من موقع الحادث") }}
+                        {% for e in form.title.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.priority.label(class="form-label fw-bold") }}
+                        {{ form.priority(class="form-select") }}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.department.label(class="form-label fw-bold") }}
+                        {{ form.department(class="form-control",
+                                            placeholder="مثال: إدارة النقل") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.client_entity.label(class="form-label fw-bold") }}
+                        {{ form.client_entity(class="form-control",
+                                               placeholder="مثال: شرطة الشارقة") }}
+                    </div>
+                </div>
+
+                <!-- ============ الموقع والمدة ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-geo-alt"></i> الموقع والمدة
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.region.label(class="form-label fw-bold") }}
+                        {{ form.region(class="form-control",
+                                        placeholder="مثال: المدينة / خورفكان") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.location.label(class="form-label fw-bold") }}
+                        {{ form.location(class="form-control",
+                                          placeholder="الموقع التفصيلي") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.needed_from.label(class="form-label fw-bold") }}
+                        {{ form.needed_from(class="form-control", type="date") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.needed_until.label(class="form-label fw-bold") }}
+                        {{ form.needed_until(class="form-control", type="date") }}
+                    </div>
+                </div>
+
+                <!-- ============ المعدات المطلوبة ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-truck"></i> المعدات المطلوبة
+                </h6>
+
+                <div id="itemsContainer">
+                    {% for item_field in form.items %}
+                    <div class="item-row row g-2 mb-2 align-items-end">
+                        <div class="col-md-5">
+                            {{ item_field.form.equipment_key.label(class="form-label small fw-bold") }}
+                            {{ item_field.form.equipment_key(class="form-select form-select-sm") }}
+                        </div>
+                        <div class="col-md-2">
+                            {{ item_field.form.quantity.label(class="form-label small fw-bold") }}
+                            {{ item_field.form.quantity(class="form-control form-control-sm",
+                                                         min="1", max="100") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ item_field.form.notes.label(class="form-label small fw-bold") }}
+                            {{ item_field.form.notes(class="form-control form-control-sm",
+                                                      placeholder="اختياري") }}
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-item"
+                                    title="حذف البند">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <button type="button" id="addItemBtn" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="bi bi-plus-lg"></i> إضافة بند
+                </button>
+
+                <!-- ============ السبب ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-chat-left-text"></i> سبب الطلب
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        {{ form.reason(class="form-control", rows=3,
+                                        placeholder="اشرح سبب الطلب...") }}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- الأزرار -->
+            <div class="card-footer bg-light d-flex justify-content-between flex-wrap gap-2">
+                <div class="d-flex gap-2">
+                    <button type="submit" name="action" value="save" class="btn btn-success px-4">
+                        <i class="bi bi-save"></i> حفظ كمسودة
+                    </button>
+                    <button type="submit" name="action" value="save_and_submit"
+                            class="btn btn-primary px-4">
+                        <i class="bi bi-send"></i> حفظ وتقديم
+                    </button>
+                </div>
+                <a href="{{ url_for('requests.list_requests') }}"
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> إلغاء
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<script>
+// إضافة بند جديد (نسخة من السطر الأول)
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('itemsContainer');
+    const addBtn = document.getElementById('addItemBtn');
+
+    function reindexItems() {
+        // إعادة ترقيم indices[name] للبنود
+        const rows = container.querySelectorAll('.item-row');
+        rows.forEach((row, idx) => {
+            row.querySelectorAll('input, select, textarea').forEach(el => {
+                const name = el.getAttribute('name');
+                if (name && name.includes('items-')) {
+                    // items-0-equipment_key → items-{idx}-equipment_key
+                    const newName = name.replace(/items-\d+-/, `items-${idx}-`);
+                    el.setAttribute('name', newName);
+                    if (el.id) {
+                        el.id = el.id.replace(/items-\d+-/, `items-${idx}-`);
+                    }
+                }
+            });
+        });
+    }
+
+    addBtn.addEventListener('click', function() {
+        const firstRow = container.querySelector('.item-row');
+        if (!firstRow) return;
+        const newRow = firstRow.cloneNode(true);
+
+        // امسح القيم
+        newRow.querySelectorAll('input, select, textarea').forEach(el => {
+            if (el.tagName === 'SELECT') {
+                el.selectedIndex = 0;
+            } else if (el.type === 'number') {
+                el.value = '1';
+            } else {
+                el.value = '';
+            }
+        });
+
+        container.appendChild(newRow);
+        reindexItems();
+    });
+
+    container.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-item')) {
+            const rows = container.querySelectorAll('.item-row');
+            if (rows.length > 1) {
+                e.target.closest('.item-row').remove();
+                reindexItems();
+            } else {
+                alert('يجب أن يحتوي الطلب على بند واحد على الأقل');
+            }
+        }
+    });
+});
+</script>
+
+{% endblock %}

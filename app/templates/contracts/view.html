@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}{{ contract.contract_number }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-file-earmark-text text-primary"></i>
+            {{ contract.contract_number }}
+        </h3>
+        <p class="text-muted mb-0">
+            {{ contract.supplier.company_name_ar }}
+        </p>
+    </div>
+        <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('contracts.compare_contract', cid=contract.id) }}"
+           class="btn btn-info text-white">
+            <i class="bi bi-bar-chart-line"></i> مقارنة الفترات
+        </a>
+        <a href="{{ url_for('contracts.print_contract', cid=contract.id) }}"
+           target="_blank" class="btn btn-dark">
+            <i class="bi bi-printer"></i> طباعة العقد
+        </a>
+        <a href="{{ url_for('contracts.contract_pdf', cid=contract.id) }}"
+           class="btn btn-danger">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </a>
+        {% if has_permission('contracts.edit') %}
+        <a href="{{ url_for('contracts.edit_contract', cid=contract.id) }}"
+           class="btn btn-warning">
+            <i class="bi bi-pencil"></i> تعديل
+        </a>
+        {% endif %}
+        <a href="{{ url_for('contracts.list_contracts') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+    </div>
+
+    <!-- ============ العمود الأيسر ============ -->
+    <div class="col-lg-8">
+
+        <!-- تفاصيل العقد -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> تفاصيل العقد</h6>
+                {{ contract.status | state_badge('contract') | safe }}
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المورد</small>
+                        <a href="{{ url_for('suppliers.view_supplier', sid=contract.supplier.id) }}"
+                           class="text-decoration-none">
+                            <strong>{{ contract.supplier.company_name_ar }}</strong>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الجهة</small>
+                        <span>{{ contract.client_entity or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المنطقة</small>
+                        <span>{{ contract.region or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الفترة</small>
+                        {% if contract.start_date and contract.end_date %}
+                            {{ contract.start_date.strftime('%Y-%m-%d') }}
+                            →
+                            {{ contract.end_date.strftime('%Y-%m-%d') }}
+                            {% set d = contract.days_to_expiry() %}
+                            {% if d is not none and d < 0 %}
+                                <span class="badge bg-danger">منتهي</span>
+                            {% elif d is not none and d <= 30 %}
+                                <span class="badge bg-warning text-dark">{{ d }} يوم</span>
+                            {% endif %}
+                        {% else %}—{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">القيمة</small>
+                        <strong class="text-success">
+                            {{ "{:,.2f}".format(contract.value or 0) }} {{ contract.currency }}
+                        </strong>
+                        <span class="badge bg-info text-dark">
+                            {{ contract.value_period_label() }}
+                        </span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">شروط الدفع</small>
+                        <span>{{ contract.payment_terms or '—' }}</span>
+                    </div>
+                    {% if contract.location_keywords %}
+                    <div class="col-12">
+                        <small class="text-muted d-block">كلمات الموقع</small>
+                        <span class="text-muted small">{{ contract.location_keywords }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- المعدات المشمولة -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-truck text-primary"></i>
+                    المعدات المشمولة
+                    <span class="badge bg-secondary">{{ contract.equipment_items|length }}</span>
+                </h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="width: 60px;">#</th>
+                            <th>نوع المعدة</th>
+                            <th class="text-center">الكمية</th>
+                            <th class="text-end">السعر المتفق عليه</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in contract.equipment_items %}
+                        <tr>
+                            <td class="text-center">{{ loop.index }}</td>
+                            <td>
+                                <strong>{{ item.equipment_name_ar() }}</strong>
+                                <br><small class="text-muted">{{ item.equipment_name_en() }}</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">{{ item.quantity }}</span>
+                            </td>
+                            <td class="text-end">
+                                {% if item.unit_price %}
+                                    <strong class="text-success">
+                                        {{ "{:,.2f}".format(item.unit_price) }} AED
+                                    </strong>
+                                {% else %}
+                                    <span class="text-muted">— لم يُسعّر بعد</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-3">
+                                لا توجد معدات محددة
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- الطلبات المرتبطة -->
+        {% if linked_requests %}
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-link-45deg text-primary"></i>
+                    الطلبات المرتبطة
+                    <span class="badge bg-secondary">{{ linked_requests|length }}</span>
+                </h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>رقم الطلب</th>
+                            <th>العنوان</th>
+                            <th class="text-center">الحالة</th>
+                            <th class="text-center">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in linked_requests %}
+                        <tr>
+                            <td>
+                                <code>{{ req.request_number }}</code>
+                            </td>
+                            <td>{{ req.title }}</td>
+                            <td class="text-center">
+                                {{ req.status | state_badge('equipment_request') | safe }}
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('requests.view_request', rid=req.id) }}"
+                                   class="btn btn-sm btn-info">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Timeline -->
+        {% if logs %}
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-clock-history text-primary"></i> سجل الإجراءات
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="workflow-timeline">
+                    {% for log in logs %}
+                    <div class="workflow-step done">
+                        <div class="dot"></div>
+                        <div class="step-title">
+                            {{ log.action }}
+                        </div>
+                        <div class="step-meta">
+                            {{ log.performed_by.full_name if log.performed_by else 'النظام' }} —
+                            {{ log.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            <br>
+                            <small class="text-muted">
+                                من
+                                {{ log.from_state | state_badge('contract') | safe }}
+                                إلى
+                                {{ log.to_state | state_badge('contract') | safe }}
+                            </small>
+                        </div>
+                        {% if log.comment %}
+                        <div class="step-comment">
+                            <i class="bi bi-chat-left-quote"></i> {{ log.comment }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- ============ العمود الأيمن ============ -->
+    <div class="col-lg-4">
+
+        <!-- الإجراءات -->
+        {% if actions %}
+        <div class="card shadow-sm border-primary border-2 mb-3">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-lightning-charge"></i> إجراءات متاحة</h6>
+            </div>
+            <div class="card-body">
+                {% set ns = namespace(needs_comment=false) %}
+                {% for action in actions %}
+                    {% if action.requires_comment %}
+                        {% set ns.needs_comment = true %}
+                    {% endif %}
+                {% endfor %}
+
+                {% if ns.needs_comment %}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">التعليق (مطلوب)</label>
+                    <textarea id="actionComment" class="form-control form-control-sm"
+                              rows="2"></textarea>
+                </div>
+                {% endif %}
+
+                <div class="d-grid gap-2">
+                    {% for action in actions %}
+                    <form method="POST"
+                          action="{{ url_for('contracts.action_contract', cid=contract.id) }}"
+                          class="action-form"
+                          data-requires-comment="{{ 'true' if action.requires_comment else 'false' }}"
+                          data-label="{{ action.label_ar }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="{{ action.action }}">
+                        <input type="hidden" name="comment" value="">
+                        <button type="submit"
+                                class="btn btn-{% if action.action in ['activate'] %}success{% elif action.action in ['terminate'] %}danger{% else %}primary{% endif %} w-100">
+                            <i class="bi bi-arrow-right-circle"></i> {{ action.label_ar }}
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- العقد الموقّع -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-file-earmark-pdf text-danger"></i> العقد الموقّع
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                {% if contract.signed_document %}
+                    <div class="alert alert-success py-2 mb-2 small">
+                        ✅ محفوظ
+                        {% if contract.signed_uploaded_at %}
+                            <br><small>{{ contract.signed_uploaded_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    </div>
+                    <a href="{{ url_for('static', filename='uploads/' + contract.signed_document) }}"
+                       target="_blank" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-file-earmark-pdf"></i> عرض العقد
+                    </a>
+                {% else %}
+                    <div class="alert alert-warning py-2 mb-0 small">
+                        ⏳ لم يُرفع بعد
+                        <br>
+                        <a href="{{ url_for('contracts.edit_contract', cid=contract.id) }}"
+                           class="small">رفع الآن</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- حذف -->
+        {% if has_permission('contracts.delete') and contract.status != 'active' %}
+        <div class="card shadow-sm border-danger border-2">
+            <div class="card-header bg-danger text-white">
+                <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> منطقة الخطر</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST"
+                      action="{{ url_for('contracts.delete_contract', cid=contract.id) }}"
+                      onsubmit="return confirm('⚠️ حذف العقد {{ contract.contract_number }}؟\n\nلا يمكن التراجع!');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-danger w-100">
+                        <i class="bi bi-trash"></i> حذف العقد
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.action-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const commentEl = document.getElementById('actionComment');
+        if (commentEl) {
+            form.querySelector('input[name="comment"]').value = commentEl.value;
+        }
+        const needsComment = form.dataset.requiresComment === 'true';
+        const label = form.dataset.label || 'الإجراء';
+        if (needsComment && (!commentEl || !commentEl.value.trim())) {
+            e.preventDefault();
+            alert(`⚠️ "${label}" يتطلب تعليقاً`);
+            if (commentEl) commentEl.focus();
+            return false;
+        }
+        return confirm(`تنفيذ "${label}"؟`);
+    });
+});
+</script>
+
+{% endblock %}

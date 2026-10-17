@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}طلبات المعدات{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-clipboard-plus text-primary"></i> طلبات المعدات
+        <span class="badge bg-secondary">{{ requests|length }}</span>
+    </h3>
+    {% if has_permission('requests.create') %}
+    <a href="{{ url_for('requests.add_request') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> طلب جديد
+    </a>
+    {% endif %}
+</div>
+
+<!-- KPI Cards — قابلة للنقر للفلترة -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-lg-2">
+        <a href="{{ url_for('requests.list_requests') }}" class="text-decoration-none">
+            <div class="card kpi-card kpi-dark border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-white-50 small">الكل</div>
+                    <h3 class="mb-0 text-white fw-bold">{{ stats.total }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 col-lg-2">
+        <a href="{{ url_for('requests.list_requests', status='draft') }}" class="text-decoration-none">
+            <div class="card kpi-card kpi-secondary border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-white-50 small">مسودة</div>
+                    <h3 class="mb-0 text-white fw-bold">{{ stats.draft }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 col-lg-2">
+        <a href="{{ url_for('requests.list_requests', status='submitted') }}" class="text-decoration-none">
+            <div class="card kpi-card kpi-info border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-white-50 small">بانتظار</div>
+                    <h3 class="mb-0 text-white fw-bold">{{ stats.submitted }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 col-lg-2">
+        <a href="{{ url_for('requests.list_requests', status='approved') }}" class="text-decoration-none">
+            <div class="card kpi-card kpi-success border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-white-50 small">معتمد</div>
+                    <h3 class="mb-0 text-white fw-bold">{{ stats.approved }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 col-lg-2">
+        <a href="{{ url_for('requests.list_requests', status='contracted') }}" class="text-decoration-none">
+            <div class="card kpi-card kpi-primary border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-white-50 small">متعاقد</div>
+                    <h3 class="mb-0 text-white fw-bold">{{ stats.contracted }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3 col-lg-2">
+        <a href="{{ url_for('requests.list_requests', status='fulfilled') }}" class="text-decoration-none">
+            <div class="card kpi-card kpi-warning border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-white-50 small">منفّذ</div>
+                    <h3 class="mb-0 text-white fw-bold">{{ stats.fulfilled }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- الفلترة -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">الحالة</label>
+                <select name="status" class="form-select">
+                    <option value="">— الكل —</option>
+                    <option value="draft" {{ 'selected' if status_filter == 'draft' }}>مسودة</option>
+                    <option value="submitted" {{ 'selected' if status_filter == 'submitted' }}>بانتظار المراجعة</option>
+                    <option value="under_review" {{ 'selected' if status_filter == 'under_review' }}>قيد المراجعة</option>
+                    <option value="approved" {{ 'selected' if status_filter == 'approved' }}>معتمد</option>
+                    <option value="rejected" {{ 'selected' if status_filter == 'rejected' }}>مرفوض</option>
+                    <option value="contracted" {{ 'selected' if status_filter == 'contracted' }}>تم التعاقد</option>
+                    <option value="fulfilled" {{ 'selected' if status_filter == 'fulfilled' }}>منفّذ</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">الأولوية</label>
+                <select name="priority" class="form-select">
+                    <option value="">— الكل —</option>
+                    <option value="low" {{ 'selected' if priority_filter == 'low' }}>منخفضة</option>
+                    <option value="normal" {{ 'selected' if priority_filter == 'normal' }}>عادية</option>
+                    <option value="high" {{ 'selected' if priority_filter == 'high' }}>عالية</option>
+                    <option value="urgent" {{ 'selected' if priority_filter == 'urgent' }}>عاجلة</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div class="form-check form-switch mt-4">
+                    <input type="checkbox" name="mine" value="1"
+                           class="form-check-input" id="mineOnly"
+                           {{ 'checked' if mine }}>
+                    <label class="form-check-label small" for="mineOnly">طلباتي فقط</label>
+                </div>
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> بحث</button>
+                <a href="{{ url_for('requests.list_requests') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- الجدول -->
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-center" style="width: 60px;">#</th>
+                    <th>رقم الطلب</th>
+                    <th>العنوان</th>
+                    <th>الطالب</th>
+                    <th class="text-center">المعدات</th>
+                    <th class="text-center">الأولوية</th>
+                    <th class="text-center">الحالة</th>
+                    <th class="text-center">التاريخ</th>
+                    <th class="text-center" style="width: 130px;">إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                <tr>
+                    <td class="text-center">{{ req.id }}</td>
+                    <td>
+                        <a href="{{ url_for('requests.view_request', rid=req.id) }}"
+                           class="text-decoration-none">
+                            <code class="text-primary fw-bold">{{ req.request_number }}</code>
+                        </a>
+                    </td>
+                    <td>
+                        <strong>{{ req.title }}</strong>
+                        {% if req.location %}
+                            <br><small class="text-muted">
+                                <i class="bi bi-geo-alt"></i> {{ req.location[:50] }}
+                            </small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <small>{{ req.requester.full_name if req.requester else '—' }}</small>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-primary">{{ req.total_items }}</span>
+                        <small class="text-muted d-block">
+                            ({{ req.total_quantity }} معدة)
+                        </small>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ req.priority_color() }}">
+                            {{ req.priority_label() }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        {{ req.status | state_badge('equipment_request') | safe }}
+                    </td>
+                    <td class="text-center">
+                        <small class="text-muted">
+                            {{ req.created_at.strftime('%Y-%m-%d') }}
+                        </small>
+                    </td>
+                    <td class="text-center" style="white-space: nowrap;">
+                        <a href="{{ url_for('requests.view_request', rid=req.id) }}"
+                           class="btn btn-sm btn-info btn-icon-only" title="عرض">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if req.status == 'draft' and (req.requester_id == current_user.id or current_user.is_admin) %}
+                        <a href="{{ url_for('requests.edit_request', rid=req.id) }}"
+                           class="btn btn-sm btn-warning btn-icon-only" title="تعديل">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                        {% if has_permission('requests.delete') and req.status in ['draft', 'rejected', 'cancelled'] %}
+                        <form method="POST"
+                              action="{{ url_for('requests.delete_request', rid=req.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('حذف الطلب {{ req.request_number }}؟');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-danger btn-icon-only" title="حذف">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-5">
+                        <i class="bi bi-clipboard-x fs-2 d-block mb-2"></i>
+                        {% if status_filter or priority_filter or mine %}
+                            لا توجد طلبات مطابقة للفلاتر
+                            <br><a href="{{ url_for('requests.list_requests') }}">مسح الفلاتر</a>
+                        {% else %}
+                            لا توجد طلبات بعد
+                            {% if has_permission('requests.create') %}
+                                <br><a href="{{ url_for('requests.add_request') }}">أنشئ أول طلب</a>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

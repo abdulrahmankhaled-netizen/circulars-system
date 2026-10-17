@@ -1,0 +1,528 @@
+/* ============================================================
+   Global
+   ============================================================ */
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+    background: #f4f6f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    color: #212529;
+}
+
+main {
+    flex: 1;
+}
+
+/* ============================================================
+   Navbar
+   ============================================================ */
+.app-navbar {
+    background: linear-gradient(135deg, #143a5c 0%, #1f4e78 100%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 0.5rem 0;
+}
+
+.app-navbar .navbar-brand {
+    color: #fff !important;
+    font-size: 1.15rem;
+    letter-spacing: 0.3px;
+}
+
+.app-navbar .navbar-brand i {
+    margin-left: 6px;
+    color: #4ade80;
+}
+
+.app-navbar .nav-link {
+    color: rgba(255, 255, 255, 0.85) !important;
+    border-radius: 6px;
+    padding: 6px 14px !important;
+    margin: 0 2px;
+    transition: all 0.18s ease;
+    font-size: 0.95rem;
+}
+
+.app-navbar .nav-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff !important;
+    transform: translateY(-1px);
+}
+
+.app-navbar .nav-link.active {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff !important;
+    font-weight: 600;
+}
+
+.app-navbar .dropdown-menu {
+    border: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+    padding: 8px;
+    min-width: 220px;
+}
+
+.app-navbar .dropdown-item {
+    border-radius: 6px;
+    padding: 8px 12px;
+    transition: background 0.15s;
+}
+
+.app-navbar .dropdown-item:hover {
+    background: #f0f4f9;
+}
+
+.app-navbar .dropdown-item.text-danger:hover {
+    background: #fee2e2;
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.app-footer {
+    background: #f8f9fa;
+    text-align: center;
+    padding: 18px 15px;
+    color: #6c757d;
+    border-top: 1px solid #e9ecef;
+    margin-top: 40px;
+    font-size: 0.85rem;
+}
+
+/* ============================================================
+   KPI Cards
+   ============================================================ */
+.kpi-card {
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    cursor: pointer;
+    min-height: 110px;
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+}
+
+.kpi-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent);
+    pointer-events: none;
+}
+
+.kpi-card:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14) !important;
+}
+
+.kpi-card .card-body {
+    padding: 20px 22px;
+    position: relative;
+    z-index: 1;
+}
+
+.kpi-card h2 {
+    font-size: 2rem;
+    letter-spacing: -0.5px;
+}
+
+.kpi-card .text-white-50,
+.kpi-card small,
+.kpi-card .small {
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.kpi-card i.fs-1 {
+    opacity: 0.35;
+    transition: opacity 0.2s;
+}
+
+.kpi-card:hover i.fs-1 {
+    opacity: 0.55;
+}
+
+/* Gradients */
+.kpi-primary { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); }
+.kpi-success { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+.kpi-warning { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); }
+.kpi-danger  { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+.kpi-dark    { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); }
+.kpi-info    { background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%); }
+
+/* ============================================================
+   Cards & Shadows
+   ============================================================ */
+.card {
+    border-radius: 12px;
+    border: none;
+    transition: box-shadow 0.18s ease;
+}
+
+.card.shadow-sm {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+.card.shadow-sm:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.09) !important;
+}
+
+.card-header {
+    border-bottom: 1px solid #e9ecef;
+    background: #fff;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 14px 20px;
+    font-weight: 600;
+}
+
+/* ============================================================
+   Tables
+   ============================================================ */
+.table {
+    margin-bottom: 0;
+}
+
+.table > :not(caption) > * > * {
+    padding: 12px 14px;
+    vertical-align: middle;
+}
+
+.table thead th {
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.15);
+}
+
+.table-hover tbody tr {
+    transition: background 0.12s ease;
+    cursor: default;
+}
+
+.table-hover tbody tr:hover {
+    background: #f8fafc;
+}
+
+.table code {
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: #0f172a;
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    padding: 8px 16px;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-icon-only {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.btn-icon-only:hover {
+    transform: scale(1.06);
+}
+
+.btn-primary   { background: #1e40af; border-color: #1e40af; }
+.btn-primary:hover { background: #1e3a8a; border-color: #1e3a8a; }
+
+.btn-success   { background: #059669; border-color: #059669; }
+.btn-success:hover { background: #047857; border-color: #047857; }
+
+/* ============================================================
+   Forms
+   ============================================================ */
+.form-label {
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: #334155;
+}
+
+.form-control,
+.form-select {
+    border-radius: 8px;
+    border: 1.5px solid #e2e8f0;
+    padding: 9px 12px;
+    transition: all 0.15s ease;
+    font-size: 0.95rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.input-group-text {
+    background: #f1f5f9;
+    border: 1.5px solid #e2e8f0;
+    color: #64748b;
+    border-radius: 8px;
+}
+
+.form-check-input:checked {
+    background-color: #1e40af;
+    border-color: #1e40af;
+}
+
+.form-check-input:focus {
+    box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
+}
+
+/* ============================================================
+   Badges
+   ============================================================ */
+.badge {
+    padding: 5px 10px;
+    font-weight: 500;
+    font-size: 0.78rem;
+    letter-spacing: 0.2px;
+}
+
+.state-badge {
+    font-size: 0.82rem;
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+
+/* ============================================================
+   Alerts
+   ============================================================ */
+.alert {
+    border: none;
+    border-radius: 12px;
+    padding: 14px 20px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    animation: slideDown 0.35s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================================
+   Workflow Timeline
+   ============================================================ */
+.workflow-timeline {
+    position: relative;
+    padding: 15px 0;
+}
+
+.workflow-timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 16px;
+    width: 2px;
+    background: #e2e8f0;
+}
+
+.workflow-step {
+    position: relative;
+    padding-right: 48px;
+    margin-bottom: 24px;
+}
+
+.workflow-step .dot {
+    position: absolute;
+    right: 8px;
+    top: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #e2e8f0;
+    transition: all 0.3s ease;
+}
+
+.workflow-step.done .dot {
+    background: #10b981;
+    box-shadow: 0 0 0 2px #10b981;
+}
+
+.workflow-step.active .dot {
+    background: #3b82f6;
+    box-shadow: 0 0 0 2px #3b82f6;
+    animation: pulse 1.5s infinite;
+}
+
+.workflow-step.rejected .dot {
+    background: #ef4444;
+    box-shadow: 0 0 0 2px #ef4444;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 2px #3b82f6;
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.25);
+    }
+}
+
+.workflow-step .step-title {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.workflow-step .step-meta {
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.workflow-step .step-comment {
+    background: #f8fafc;
+    border-right: 3px solid #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin-top: 6px;
+    font-size: 0.88rem;
+    color: #475569;
+}
+
+/* ============================================================
+   Utilities
+   ============================================================ */
+.text-muted {
+    color: #64748b !important;
+}
+
+.shadow-lg {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
+}
+
+.rounded-lg {
+    border-radius: 14px !important;
+}
+
+/* Avatar circle */
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   Scrollbar (Webkit)
+   ============================================================ */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 768px) {
+    .kpi-card h2 {
+        font-size: 1.6rem;
+    }
+    
+    .table > :not(caption) > * > * {
+        padding: 8px 10px;
+        font-size: 0.88rem;
+    }
+    
+    .btn {
+        padding: 7px 12px;
+        font-size: 0.9rem;
+    }
+    
+    .app-navbar .navbar-brand {
+        font-size: 1rem;
+    }
+}
+
+/* ============================================================
+   Print
+   ============================================================ */
+@media print {
+    .app-navbar,
+    .app-footer,
+    .btn,
+    .alert,
+    .no-print {
+        display: none !important;
+    }
+    
+    body {
+        background: #fff;
+        font-size: 11pt;
+    }
+    
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+    }
+    
+    .kpi-card {
+        border: 1px solid #999 !important;
+        background: #f5f5f5 !important;
+    }
+    
+    .kpi-card h2,
+    .kpi-card .text-white-50 {
+        color: #000 !important;
+    }
+}

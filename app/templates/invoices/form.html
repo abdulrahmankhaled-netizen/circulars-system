@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">{{ title }}</h3>
+    <a href="{{ url_for('invoices.list_invoices') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <form method="POST" enctype="multipart/form-data" novalidate
+              class="card shadow-sm border-0">
+            {{ form.hidden_tag() }}
+
+            <div class="card-body">
+
+                <!-- ═══════════ المسح الضوئي ═══════════ -->
+                <div class="card border-primary border-2 mb-4" style="background: #f0f9ff;">
+                    <div class="card-body">
+                        <div class="row align-items-center g-3">
+                            <div class="col-md-8">
+                                <h6 class="text-primary mb-2">
+                                    <i class="bi bi-magic"></i> المسح الضوئي التلقائي
+                                </h6>
+                                <p class="text-muted small mb-2">
+                                    ارفع الفاتورة (PDF / صورة) — سيقرأها النظام تلقائياً ويعبئ الحقول.
+                                </p>
+                                <input type="file" id="scanInvoiceFile" class="form-control"
+                                       accept=".pdf,.png,.jpg,.jpeg,.webp">
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" id="scanInvoiceBtn" class="btn btn-primary w-100">
+                                    <i class="bi bi-search"></i> مسح وقراءة الفاتورة
+                                </button>
+                            </div>
+                        </div>
+                        <div id="scanStatus" class="mt-2 small"></div>
+                    </div>
+                </div>
+
+                <!-- الأساسيات -->
+                <h6 class="text-primary border-bottom pb-2 mb-3">
+                    <i class="bi bi-info-circle"></i> بيانات الفاتورة
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.invoice_type.label(class="form-label fw-bold") }}
+                        {{ form.invoice_type(class="form-select", id="invoiceType") }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.invoice_number.label(class="form-label fw-bold") }}
+                        {{ form.invoice_number(class="form-control") }}
+                        {% for e in form.invoice_number.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.status.label(class="form-label fw-bold") }}
+                        {{ form.status(class="form-select") }}
+                    </div>
+                </div>
+
+                <!-- الأطراف -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-people"></i> الأطراف
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6" id="supplierField">
+                        {{ form.supplier_id.label(class="form-label fw-bold") }}
+                        {{ form.supplier_id(class="form-select") }}
+                    </div>
+                    <div class="col-md-6 customer-field">
+                        {{ form.customer_name.label(class="form-label fw-bold") }}
+                        {{ form.customer_name(class="form-control") }}
+                    </div>
+                    <div class="col-md-6 customer-field">
+                        {{ form.customer_phone.label(class="form-label fw-bold") }}
+                        {{ form.customer_phone(class="form-control") }}
+                    </div>
+                </div>
+
+                <!-- الارتباطات -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-link-45deg"></i> الارتباطات
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.contract_id.label(class="form-label fw-bold") }}
+                        {{ form.contract_id(class="form-select") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.mission_id.label(class="form-label fw-bold") }}
+                        {{ form.mission_id(class="form-select") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.issue_date.label(class="form-label fw-bold") }}
+                        {{ form.issue_date(class="form-control", type="date") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.due_date.label(class="form-label fw-bold") }}
+                        {{ form.due_date(class="form-control", type="date") }}
+                    </div>
+                </div>
+
+                <!-- المبالغ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-cash-coin"></i> المبالغ
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.amount.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            {{ form.amount(class="form-control", id="amountInput", step="0.01", min="0") }}
+                            <span class="input-group-text">AED</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.vat_amount.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            <span class="input-group-text bg-warning">5%</span>
+                            {{ form.vat_amount(class="form-control", id="vatInput", step="0.01", min="0") }}
+                            <span class="input-group-text">AED</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.total_amount.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            <span class="input-group-text bg-success text-white">Σ</span>
+                            {{ form.total_amount(class="form-control", id="totalInput", step="0.01", min="0") }}
+                            <span class="input-group-text">AED</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0 small">
+                    <i class="bi bi-info-circle"></i>
+                    أدخل المبلغ قبل الضريبة — سيُحسب الباقي تلقائياً (5%).
+                </div>
+
+                <!-- المرفق -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-paperclip"></i> المرفق
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.pdf_file.label(class="form-label fw-bold") }}
+                        {{ form.pdf_file(class="form-control") }}
+                        {% if invoice and invoice.pdf_path %}
+                            <small class="text-success d-block mt-1">
+                                <i class="bi bi-check-circle"></i>
+                                <a href="{{ url_for('static', filename='uploads/' + invoice.pdf_path) }}" target="_blank">
+                                    عرض الفاتورة الحالية
+                                </a>
+                            </small>
+                        {% endif %}
+                    </div>
+                    <div class="col-12">
+                        {{ form.notes.label(class="form-label fw-bold") }}
+                        {{ form.notes(class="form-control", rows=2) }}
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="card-footer bg-light d-flex justify-content-between">
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="bi bi-check2-circle"></i> حفظ
+                </button>
+                <a href="{{ url_for('invoices.list_invoices') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> إلغاء
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════ JavaScript ═══════════ -->
+<script>
+(function() {
+    // ═══════════ 1. حساب VAT ═══════════
+    const amountInp = document.getElementById('amountInput');
+    const vatInp = document.getElementById('vatInput');
+    const totalInp = document.getElementById('totalInput');
+
+    function recalc() {
+        if (!amountInp) return;
+        const amt = parseFloat(amountInp.value) || 0;
+        const vat = +(amt * 0.05).toFixed(2);
+        const total = +(amt + vat).toFixed(2);
+        if (vatInp) vatInp.value = vat.toFixed(2);
+        if (totalInp) totalInp.value = total.toFixed(2);
+    }
+
+    amountInp?.addEventListener('input', recalc);
+
+    // ═══════════ 2. إظهار/إخفاء الحقول ═══════════
+    const typeSel = document.getElementById('invoiceType');
+    const supplierField = document.getElementById('supplierField');
+    const customerFields = document.querySelectorAll('.customer-field');
+
+    function toggleParty() {
+        if (!typeSel) return;
+        const isSupplier = typeSel.value === 'supplier';
+        if (supplierField) supplierField.style.display = isSupplier ? '' : 'none';
+        customerFields.forEach(el => el.style.display = isSupplier ? 'none' : '');
+    }
+    typeSel?.addEventListener('change', toggleParty);
+    toggleParty();
+
+    // ═══════════ 3. المسح الضوئي (OCR) ═══════════
+    const fileInput = document.getElementById('scanInvoiceFile');
+    const scanBtn = document.getElementById('scanInvoiceBtn');
+    const statusEl = document.getElementById('scanStatus');
+
+    if (!scanBtn) return;
+
+    function showStatus(msg, type) {
+        statusEl.innerHTML = msg;
+        statusEl.className = 'mt-2 small text-' + type;
+    }
+
+    scanBtn.addEventListener('click', async function() {
+        if (!fileInput.files || !fileInput.files[0]) {
+            showStatus('⚠️ الرجاء اختيار ملف أولاً', 'warning');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        scanBtn.disabled = true;
+        scanBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> جاري القراءة...';
+        showStatus('🔄 جاري تحليل الفاتورة...', 'info');
+
+        const formData = new FormData();
+        formData.append('invoice_file', file);
+
+        const csrfToken = document.querySelector('input[name="csrf_token"]');
+        if (csrfToken) formData.append('csrf_token', csrfToken.value);
+
+        try {
+            const resp = await fetch('{{ url_for("invoices.extract_invoice") }}', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await resp.json();
+            console.log('[OCR] Response:', data);
+
+            if (data.error) {
+                showStatus('❌ ' + data.error, 'danger');
+                return;
+            }
+
+            let filled = 0;
+
+            if (data.invoice_number) {
+                const el = document.querySelector('input[name="invoice_number"]');
+                if (el && !el.value) { el.value = data.invoice_number; filled++; }
+            }
+            if (data.issue_date) {
+                const el = document.querySelector('input[name="issue_date"]');
+                if (el && !el.value) { el.value = data.issue_date; filled++; }
+            }
+            if (data.amount && data.amount > 0) {
+                const el = document.querySelector('input[name="amount"]');
+                if (el && !el.value) { el.value = data.amount.toFixed(2); filled++; }
+            }
+            if (data.vat_amount && data.vat_amount > 0) {
+                const el = document.querySelector('input[name="vat_amount"]');
+                if (el && !el.value) { el.value = data.vat_amount.toFixed(2); }
+            }
+            if (data.total_amount && data.total_amount > 0) {
+                const el = document.querySelector('input[name="total_amount"]');
+                if (el && !el.value) { el.value = data.total_amount.toFixed(2); }
+            }
+            if (data.supplier_id) {
+                const el = document.querySelector('select[name="supplier_id"]');
+                if (el) { el.value = data.supplier_id; filled++; }
+            }
+
+            if (typeSel) typeSel.value = 'supplier';
+
+            // إرفاق نفس الملف تلقائياً في حقل المرفق
+            const pdfEl = document.querySelector('input[name="pdf_file"]');
+            if (pdfEl && !pdfEl.files[0]) {
+                try {
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    pdfEl.files = dt.files;
+                } catch (e) {}
+            }
+
+            if (filled > 0) {
+                let extras = [];
+                if (data.supplier_name) extras.push('المورد: ' + data.supplier_name);
+                showStatus(`✅ تم استخراج ${filled} حقل — ${extras.join(' | ')}`, 'success');
+            } else {
+                showStatus('⚠️ لم يتعرف النظام على بيانات — راجع F12 → Console', 'warning');
+            }
+
+            if (data.raw_text) {
+                console.log('=== RAW TEXT ===');
+                console.log(data.raw_text);
+            }
+
+        } catch (err) {
+            console.error('[OCR] Error:', err);
+            showStatus('❌ فشل الاتصال: ' + err.message, 'danger');
+        } finally {
+            scanBtn.disabled = false;
+            scanBtn.innerHTML = '<i class="bi bi-search"></i> مسح وقراءة الفاتورة';
+        }
+    });
+})();
+</script>
+
+{% endblock %}

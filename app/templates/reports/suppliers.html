@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}أداء الموردين{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-people text-warning"></i> أداء الموردين
+    </h3>
+    <div class="d-flex gap-2 flex-wrap">
+        <button onclick="window.print()" class="btn btn-dark">
+            <i class="bi bi-printer"></i> طباعة
+        </button>
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<!-- الفلترة -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">فترة سريعة</label>
+                <select name="period" class="form-select" onchange="this.form.submit()">
+                    <option value="">— تواريخ مخصصة —</option>
+                    <option value="this_month" {{ 'selected' if period == 'this_month' }}>هذا الشهر</option>
+                    <option value="last_month" {{ 'selected' if period == 'last_month' }}>الشهر الماضي</option>
+                    <option value="last_30" {{ 'selected' if period == 'last_30' }}>آخر 30 يوم</option>
+                    <option value="this_year" {{ 'selected' if period == 'this_year' }}>هذه السنة</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">من تاريخ</label>
+                <input type="date" name="from_date" value="{{ from_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">إلى تاريخ</label>
+                <input type="date" name="to_date" value="{{ to_date }}" class="form-control">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> عرض</button>
+                <a href="{{ url_for('reports.suppliers_report') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th>المورد</th>
+                    <th class="text-center">المهام</th>
+                    <th class="text-center">نسبة النجاح</th>
+                    <th class="text-end">الإيرادات</th>
+                    <th class="text-end">التكاليف</th>
+                    <th class="text-end">الربح</th>
+                    <th class="text-center">الهامش</th>
+                    <th class="text-end">فواتير المورد</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in results %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <a href="{{ url_for('suppliers.view_supplier', sid=r.supplier.id) }}">
+                            <strong>{{ r.supplier.company_name_ar }}</strong>
+                        </a>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-primary">{{ r.missions }}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ 'success' if r.success_rate >= 80 else 'warning' if r.success_rate >= 50 else 'danger' }}">
+                            {{ r.success_rate }}%
+                        </span>
+                    </td>
+                    <td class="text-end">{{ "{:,.0f}".format(r.revenue) }}</td>
+                    <td class="text-end text-warning">{{ "{:,.0f}".format(r.cost) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if r.profit >= 0 else 'text-danger' }}">
+                        {{ "{:+,.0f}".format(r.profit) }}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ 'success' if r.margin >= 20 else 'warning' if r.margin >= 10 else 'danger' }}">
+                            {{ r.margin }}%
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <small>{{ "{:,.0f}".format(r.total_invoiced) }}</small>
+                        <br>
+                        <small class="text-success">
+                            مدفوع: {{ "{:,.0f}".format(r.paid_invoices) }}
+                        </small>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="text-center text-muted py-4">لا توجد بيانات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

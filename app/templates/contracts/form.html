@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        {% if contract %}
+            <i class="bi bi-pencil-square text-warning"></i> {{ title }}
+        {% else %}
+            <i class="bi bi-file-earmark-plus text-success"></i> {{ title }}
+        {% endif %}
+    </h3>
+    <a href="{{ url_for('contracts.list_contracts') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع
+    </a>
+</div>
+
+{% if req %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    <strong>سيتم إنشاء العقد من الطلب:</strong>
+    <a href="{{ url_for('requests.view_request', rid=req.id) }}">
+        {{ req.request_number }} — {{ req.title }}
+    </a>
+    <br>
+    <small>سيتم نسخ المعدات والجهة والمنطقة والمدة تلقائياً.</small>
+</div>
+{% endif %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <form method="POST" enctype="multipart/form-data" novalidate
+              class="card shadow-sm border-0">
+            {{ form.hidden_tag() }}
+
+            <div class="card-body">
+
+                <!-- ============ الأساسيات ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3">
+                    <i class="bi bi-info-circle"></i> بيانات العقد
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.contract_number.label(class="form-label fw-bold") }}
+                        {{ form.contract_number(class="form-control") }}
+                        {% for e in form.contract_number.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.supplier_id.label(class="form-label fw-bold") }}
+                        {{ form.supplier_id(class="form-select") }}
+                        {% for e in form.supplier_id.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- ============ الجهة والمنطقة ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-translate"></i> الجهة والمنطقة (عربي + إنجليزي)
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.client_entity.label(class="form-label fw-bold") }}
+                        {{ form.client_entity(class="form-control",
+                                               placeholder="شرطة الفجيرة") }}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.client_entity_en.label(class="form-label fw-bold") }}
+                        {{ form.client_entity_en(class="form-control",
+                                                  placeholder="Fujairah Police",
+                                                  dir="ltr") }}
+                        <small class="text-muted">
+                            <i class="bi bi-translate"></i> يُستخدم في العقد الإنجليزي
+                        </small>
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.region.label(class="form-label fw-bold") }}
+                        {{ form.region(class="form-control",
+                                        placeholder="دوار سكم كم") }}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.region_en.label(class="form-label fw-bold") }}
+                        {{ form.region_en(class="form-control",
+                                           placeholder="Sakamkam Roundabout",
+                                           dir="ltr") }}
+                        <small class="text-muted">
+                            <i class="bi bi-translate"></i> يُستخدم في العقد الإنجليزي
+                        </small>
+                    </div>
+
+                    <div class="col-12">
+                        {{ form.location_keywords.label(class="form-label fw-bold") }}
+                        {{ form.location_keywords(class="form-control", rows=2,
+                                                   placeholder="مثال: Fujairah, الفجيرة, سكم كم") }}
+                        <small class="text-muted">
+                            افصل بفاصلة — تُستخدم للربط التلقائي للمهام بهذا العقد
+                        </small>
+                    </div>
+                </div>
+
+                <!-- ============ أنواع الآليات وعددها ============ -->
+                <h6 class="text-success border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-truck"></i> أنواع الآليات وعددها
+                </h6>
+
+                <div id="equipmentRows">
+                    {% if selected_equipment and selected_equipment|length > 0 %}
+                        {% for item in selected_equipment %}
+                        <div class="equipment-row row g-2 mb-2 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold">نوع الآلية</label>
+                                <select name="equipment_key[]" class="form-select">
+                                    {% for key, name in equipment_choices %}
+                                        <option value="{{ key }}" {% if key == item.key %}selected{% endif %}>
+                                            {{ name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold">العدد</label>
+                                <input type="number" name="equipment_qty[]" class="form-control"
+                                       value="{{ item.quantity or 1 }}" min="1" max="100">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">السعر المتفق عليه</label>
+                                <div class="input-group">
+                                    <input type="number" name="equipment_price[]" class="form-control"
+                                           value="{{ item.unit_price or 0 }}" step="0.01" min="0">
+                                    <span class="input-group-text">AED</span>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-outline-danger w-100 remove-row">
+                                    <i class="bi bi-x-lg"></i> حذف
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <button type="button" id="addEquipmentBtn"
+                        class="btn btn-outline-success btn-sm mt-2">
+                    <i class="bi bi-plus-lg"></i> إضافة آلية أخرى
+                </button>
+
+                <div class="alert alert-info py-2 mt-3 mb-0 small">
+                    <i class="bi bi-info-circle"></i>
+                    أضف كل نوع آلية مع عدده والسعر المتفق عليه.
+                    <strong>مثال:</strong> سطحه 6 طن نص × 3 بـ 300 AED
+                </div>
+
+                <!-- ============ المدد ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-calendar-event"></i> المدد
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.start_date.label(class="form-label fw-bold") }}
+                        {{ form.start_date(class="form-control", type="date") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.end_date.label(class="form-label fw-bold") }}
+                        {{ form.end_date(class="form-control", type="date") }}
+                    </div>
+                </div>
+
+                <!-- ============ القيمة ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-cash-coin"></i> القيمة والدفع
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.value.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            {{ form.value(class="form-control", step="0.01", min="0") }}
+                            <span class="input-group-text">AED</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.value_period.label(class="form-label fw-bold") }}
+                        {{ form.value_period(class="form-select") }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.currency.label(class="form-label fw-bold") }}
+                        {{ form.currency(class="form-select") }}
+                    </div>
+                    <div class="col-12">
+                        {{ form.payment_terms.label(class="form-label fw-bold") }}
+                        {{ form.payment_terms(class="form-control",
+                                               placeholder="30 يوم من نهاية الشهر") }}
+                    </div>
+                </div>
+
+                <!-- ============ المرفق ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-paperclip"></i> العقد الموقّع
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.signed_document.label(class="form-label fw-bold") }}
+                        {{ form.signed_document(class="form-control") }}
+                        <small class="text-muted">PDF, DOC, DOCX, PNG, JPG</small>
+                        {% if contract and contract.signed_document %}
+                            <div class="mt-2 small text-success">
+                                <i class="bi bi-check-circle"></i> نسخة محفوظة —
+                                <a href="{{ url_for('static', filename='uploads/' + contract.signed_document) }}"
+                                   target="_blank">عرض</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ============ الحالة والملاحظات ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-info-square"></i> الحالة والملاحظات
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.status.label(class="form-label fw-bold") }}
+                        {{ form.status(class="form-select") }}
+                    </div>
+                    <div class="col-md-8">
+                        {{ form.notes.label(class="form-label fw-bold") }}
+                        {{ form.notes(class="form-control", rows=2) }}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- الأزرار -->
+            <div class="card-footer bg-light d-flex justify-content-between flex-wrap gap-2">
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="bi bi-check2-circle"></i>
+                    {{ 'حفظ التعديلات' if contract else 'إنشاء العقد' }}
+                </button>
+                <a href="{{ url_for('contracts.list_contracts') }}"
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> إلغاء
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════ JavaScript: إدارة صفوف الآليات ═══════════ -->
+<script>
+(function() {
+    const rowsContainer = document.getElementById('equipmentRows');
+    const addBtn = document.getElementById('addEquipmentBtn');
+
+    if (!rowsContainer || !addBtn) {
+        console.warn('[Equipment] العناصر غير موجودة');
+        return;
+    }
+
+    // الحصول على HTML الخيارات من select موجود أو من JSON
+    const allOptionsHTML = (function() {
+        const existing = rowsContainer.querySelector('select[name="equipment_key[]"]');
+        if (existing) {
+            return existing.innerHTML;
+        }
+        // احتياطي: توليد من بيانات القالب
+        const choices = {{ equipment_choices | tojson if equipment_choices else '[]' }};
+        if (choices && choices.length > 0) {
+            return choices.map(c => `<option value="${c[0]}">${c[1]}</option>`).join('');
+        }
+        return '<option value="">— لا توجد معدات —</option>';
+    })();
+
+    function createNewRow() {
+        const row = document.createElement('div');
+        row.className = 'equipment-row row g-2 mb-2 align-items-end';
+        row.innerHTML = `
+            <div class="col-md-5">
+                <label class="form-label small fw-bold">نوع الآلية</label>
+                <select name="equipment_key[]" class="form-select">
+                    ${allOptionsHTML}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold">العدد</label>
+                <input type="number" name="equipment_qty[]" class="form-control"
+                       value="1" min="1" max="100">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">السعر المتفق عليه</label>
+                <div class="input-group">
+                    <input type="number" name="equipment_price[]" class="form-control"
+                           value="0" step="0.01" min="0">
+                    <span class="input-group-text">AED</span>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger w-100 remove-row">
+                    <i class="bi bi-x-lg"></i> حذف
+                </button>
+            </div>
+        `;
+        return row;
+    }
+
+    // إضافة صف جديد
+    addBtn.addEventListener('click', function() {
+        rowsContainer.appendChild(createNewRow());
+    });
+
+    // حذف صف
+    rowsContainer.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-row')) {
+            const rows = rowsContainer.querySelectorAll('.equipment-row');
+            if (rows.length > 1) {
+                e.target.closest('.equipment-row').remove();
+            } else {
+                const row = e.target.closest('.equipment-row');
+                row.querySelector('input[name="equipment_qty[]"]').value = 1;
+                row.querySelector('input[name="equipment_price[]"]').value = 0;
+                alert('يجب أن يحتوي العقد على آلية واحدة على الأقل');
+            }
+        }
+    });
+
+    // إذا لم توجد صفوف — أضف صفاً ابتدائياً
+    if (rowsContainer.querySelectorAll('.equipment-row').length === 0) {
+        addBtn.click();
+    }
+})();
+</script>
+
+{% endblock %}

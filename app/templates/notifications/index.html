@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% block title %}الإشعارات{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-bell-fill text-warning"></i> مركز التنبيهات
+        {% if total > 0 %}
+            <span class="badge bg-danger">{{ total }}</span>
+        {% else %}
+            <span class="badge bg-success">لا توجد تنبيهات</span>
+        {% endif %}
+    </h3>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> الرئيسية
+    </a>
+</div>
+
+{% if total == 0 %}
+<div class="alert alert-success text-center py-5">
+    <i class="bi bi-check-circle-fill fs-1 d-block mb-3"></i>
+    <h4>✅ لا توجد تنبيهات حالياً</h4>
+    <p class="mb-0">كل شيء على ما يرام!</p>
+</div>
+{% endif %}
+
+<!-- بطاقات سريعة -->
+{% set sections = [
+    ('expired_contracts', 'bi-file-earmark-x', 'danger', 'عقود منتهية', alerts.expired_contracts),
+    ('expiring_contracts', 'bi-file-earmark-excel', 'warning', 'عقود تنتهي قريباً', alerts.expiring_contracts),
+    ('expired_licenses', 'bi-shield-x', 'danger', 'رخص منتهية', alerts.expired_licenses),
+    ('expiring_licenses', 'bi-shield-exclamation', 'warning', 'رخص تنتهي قريباً', alerts.expiring_licenses),
+    ('overdue_invoices', 'bi-receipt-cutoff', 'danger', 'فواتير متأخرة', alerts.overdue_invoices),
+    ('stuck_missions', 'bi-stopwatch', 'info', 'مهام متأخرة', alerts.stuck_missions),
+    ('pending_signatures', 'bi-vector-pen', 'secondary', 'توقيعات معلقة', alerts.pending_signatures),
+] %}
+
+<div class="row g-3 mb-4">
+    {% for key, icon, color, label, items in sections %}
+        {% if items %}
+        <div class="col-md-3">
+            <a href="#{{ key }}" class="text-decoration-none">
+                <div class="card kpi-card kpi-{{ color }} border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="text-white-50 small">{{ label }}</div>
+                                <h2 class="mb-0 text-white fw-bold">{{ items|length }}</h2>
+                            </div>
+                            <i class="bi {{ icon }} fs-1 text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<!-- عقود منتهية -->
+{% if alerts.expired_contracts %}
+<div class="card shadow-sm border-danger border-2 mb-3" id="expired_contracts">
+    <div class="card-header bg-danger text-white d-flex justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-file-earmark-x"></i> عقود منتهية</h6>
+        <span class="badge bg-white text-danger">{{ alerts.expired_contracts|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>رقم العقد</th>
+                    <th>المورد</th>
+                    <th class="text-center">تاريخ الانتهاء</th>
+                    <th class="text-center">منتهي منذ</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts.expired_contracts %}
+                <tr>
+                    <td><code class="text-primary">{{ a.contract.contract_number }}</code></td>
+                    <td>{{ a.contract.supplier.company_name_ar }}</td>
+                    <td class="text-center">{{ a.contract.end_date.strftime('%Y-%m-%d') }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-danger">{{ a.days_overdue }} يوم</span>
+                    </td>
+                    <td class="text-center">
+                        <a href="{{ url_for('contracts.view_contract', cid=a.contract.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> عرض
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- عقود تنتهي قريباً -->
+{% if alerts.expiring_contracts %}
+<div class="card shadow-sm border-warning border-2 mb-3" id="expiring_contracts">
+    <div class="card-header bg-warning d-flex justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-file-earmark-excel"></i> عقود تنتهي خلال 30 يوماً</h6>
+        <span class="badge bg-white text-warning">{{ alerts.expiring_contracts|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>رقم العقد</th>
+                    <th>المورد</th>
+                    <th class="text-center">تاريخ الانتهاء</th>
+                    <th class="text-center">الأيام المتبقية</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts.expiring_contracts %}
+                <tr>
+                    <td><code class="text-primary">{{ a.contract.contract_number }}</code></td>
+                    <td>{{ a.contract.supplier.company_name_ar }}</td>
+                    <td class="text-center">{{ a.contract.end_date.strftime('%Y-%m-%d') }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ a.severity }}">{{ a.days }} يوم</span>
+                    </td>
+                    <td class="text-center">
+                        <a href="{{ url_for('contracts.view_contract', cid=a.contract.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> عرض
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- رخص منتهية -->
+{% if alerts.expired_licenses %}
+<div class="card shadow-sm border-danger border-2 mb-3" id="expired_licenses">
+    <div class="card-header bg-danger text-white d-flex justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-shield-x"></i> رخص تجارية منتهية</h6>
+        <span class="badge bg-white text-danger">{{ alerts.expired_licenses|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>المورد</th>
+                    <th class="text-center">رقم الرخصة</th>
+                    <th class="text-center">الانتهاء</th>
+                    <th class="text-center">منتهية منذ</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts.expired_licenses %}
+                <tr>
+                    <td><strong>{{ a.supplier.company_name_ar }}</strong></td>
+                    <td class="text-center"><code>{{ a.supplier.trade_license_no }}</code></td>
+                    <td class="text-center">{{ a.supplier.trade_license_expiry.strftime('%Y-%m-%d') }}</td>
+                    <td class="text-center"><span class="badge bg-danger">{{ a.days_overdue }} يوم</span></td>
+                    <td class="text-center">
+                        <a href="{{ url_for('suppliers.view_supplier', sid=a.supplier.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> عرض
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- رخص تنتهي قريباً -->
+{% if alerts.expiring_licenses %}
+<div class="card shadow-sm border-warning border-2 mb-3" id="expiring_licenses">
+    <div class="card-header bg-warning d-flex justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-shield-exclamation"></i> رخص تنتهي خلال 30 يوماً</h6>
+        <span class="badge bg-white text-warning">{{ alerts.expiring_licenses|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>المورد</th>
+                    <th class="text-center">رقم الرخصة</th>
+                    <th class="text-center">الانتهاء</th>
+                    <th class="text-center">الأيام المتبقية</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts.expiring_licenses %}
+                <tr>
+                    <td><strong>{{ a.supplier.company_name_ar }}</strong></td>
+                    <td class="text-center"><code>{{ a.supplier.trade_license_no }}</code></td>
+                    <td class="text-center">{{ a.supplier.trade_license_expiry.strftime('%Y-%m-%d') }}</td>
+                    <td class="text-center"><span class="badge bg-{{ a.severity }}">{{ a.days }} يوم</span></td>
+                    <td class="text-center">
+                        <a href="{{ url_for('suppliers.view_supplier', sid=a.supplier.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> عرض
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- فواتير متأخرة -->
+{% if alerts.overdue_invoices %}
+<div class="card shadow-sm border-danger border-2 mb-3" id="overdue_invoices">
+    <div class="card-header bg-danger text-white d-flex justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-receipt-cutoff"></i> فواتير متأخرة السداد</h6>
+        <span class="badge bg-white text-danger">{{ alerts.overdue_invoices|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>رقم الفاتورة</th>
+                    <th>النوع</th>
+                    <th class="text-end">الإجمالي</th>
+                    <th class="text-center">الاستحقاق</th>
+                    <th class="text-center">متأخرة منذ</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts.overdue_invoices %}
+                <tr>
+                    <td><code class="text-primary">{{ a.invoice.invoice_number }}</code></td>
+                    <td>
+                        <span class="badge bg-{{ a.invoice.type_color() }}">
+                            {{ a.invoice.type_label() }}
+                        </span>
+                    </td>
+                    <td class="text-end fw-bold">
+                        {{ "{:,.0f}".format(a.invoice.total_amount or 0) }} AED
+                    </td>
+                    <td class="text-center">{{ a.invoice.due_date.strftime('%Y-%m-%d') }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ a.severity }}">{{ a.days_overdue }} يوم</span>
+                    </td>
+                    <td class="text-center">
+                        <a href="{{ url_for('invoices.view_invoice', iid=a.invoice.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> عرض
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- مهام متأخرة -->
+{% if alerts.stuck_missions %}
+<div class="card shadow-sm border-info border-2 mb-3" id="stuck_missions">
+    <div class="card-header bg-info text-white d-flex justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-stopwatch"></i> مهام متأخرة (قيد التنفيذ لأكثر من 24 ساعة)</h6>
+        <span class="badge bg-white text-info">{{ alerts.stuck_missions|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>رقم المهمة</th>
+                    <th>المعدة</th>
+                    <th class="text-center">بدء التنفيذ</th>
+                    <th class="text-center">منذ</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts.stuck_missions %}
+                <tr>
+                    <td><code class="text-primary">{{ a.mission.mission_number }}</code></td>
+                    <td>{{ a.mission.equipment_name_ar() }}</td>
+                    <td class="text-center">{{ a.mission.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="text-center"><span class="badge bg-info">{{ a.hours }} ساعة</span></td>
+                    <td class="text-center">
+                        <a href="{{ url_for('missions.view_mission', mid=a.mission.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> عرض
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- توقيعات معلقة -->
+{% if alerts.pending_signatures %}
+<div class="card shadow-sm border-secondary border-2 mb-3" id="pending_signatures">
+    <div class="card-header bg-secondary text-white d-flex justify-content-between">
+        <h6 class="mb-0"><i class="bi bi-vector-pen"></i> توقيعات بانتظار الاعتماد</h6>
+        <span class="badge bg-white text-secondary">{{ alerts.pending_signatures|length }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>المورد</th>
+                    <th>المفوض</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts.pending_signatures %}
+                <tr>
+                    <td><strong>{{ a.supplier.company_name_ar }}</strong></td>
+                    <td>{{ a.supplier.authorized_signatory_name or '—' }}</td>
+                    <td class="text-center">
+                        <a href="{{ url_for('suppliers.view_supplier', sid=a.supplier.id) }}"
+                           class="btn btn-sm btn-success">
+                            <i class="bi bi-check2-circle"></i> اعتماد
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

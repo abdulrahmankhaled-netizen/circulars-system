@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}التقارير{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-file-bar-graph text-primary"></i> التقارير والتحليل
+    </h3>
+</div>
+
+<div class="row g-3">
+    <!-- تحليل الأرباح -->
+    <div class="col-md-4">
+        <a href="{{ url_for('reports.profit') }}" class="text-decoration-none">
+            <div class="card shadow-sm border-0 h-100 dashboard-card">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-graph-up-arrow fs-1 text-success mb-3 d-block"></i>
+                    <h4 class="text-primary">تحليل الأرباح</h4>
+                    <p class="text-muted small mb-0">
+                        الأرباح حسب العقد، المورد، المنطقة، والمعدة
+                    </p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- تقرير المهام -->
+    <div class="col-md-4">
+        <a href="{{ url_for('reports.missions_report') }}" class="text-decoration-none">
+            <div class="card shadow-sm border-0 h-100 dashboard-card">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-truck fs-1 text-info mb-3 d-block"></i>
+                    <h4 class="text-primary">تقرير المهام</h4>
+                    <p class="text-muted small mb-0">
+                        إحصائيات المهام حسب الحالة، المعدة، المنطقة، السائق
+                    </p>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- أداء الموردين -->
+    <div class="col-md-4">
+        <a href="{{ url_for('reports.suppliers_report') }}" class="text-decoration-none">
+            <div class="card shadow-sm border-0 h-100 dashboard-card">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-people fs-1 text-warning mb-3 d-block"></i>
+                    <h4 class="text-primary">أداء الموردين</h4>
+                    <p class="text-muted small mb-0">
+                        كل مورد: كم أنجز، كم كسب، معدل النجاح
+                    </p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info mt-4">
+    <i class="bi bi-info-circle"></i>
+    <strong>نصائح:</strong>
+    <ul class="mb-0 mt-2">
+        <li>استخدم الفلاتر الزمنية للمقارنة بين الفترات</li>
+        <li>صدّر أي تقرير إلى Excel بالضغط على زر "تصدير Excel"</li>
+        <li>اطبع أي تقرير بالضغط على Ctrl+P</li>
+    </ul>
+</div>
+
+<style>
+.dashboard-card {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12) !important;
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}مقارنة كل العقود{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-bar-chart-line text-primary"></i>
+        مقارنة كل العقود
+    </h3>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('contracts.list_contracts') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+        <button onclick="window.print()" class="btn btn-dark">
+            <i class="bi bi-printer"></i> طباعة
+        </button>
+    </div>
+</div>
+
+<!-- اختيار الفترات -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label fw-bold text-primary">الفترة الحالية</label>
+                <select name="p1" class="form-select" onchange="this.form.submit()">
+                    <option value="this_month" {{ 'selected' if p1_type == 'this_month' }}>هذا الشهر</option>
+                    <option value="last_month" {{ 'selected' if p1_type == 'last_month' }}>الشهر الماضي</option>
+                    <option value="last_30" {{ 'selected' if p1_type == 'last_30' }}>آخر 30 يوم</option>
+                    <option value="this_year" {{ 'selected' if p1_type == 'this_year' }}>هذه السنة</option>
+                </select>
+                <div class="small text-muted mt-1">{{ p1_from }} → {{ p1_to }}</div>
+            </div>
+            <div class="col-md-2 text-center">
+                <div class="display-5 text-muted">↔</div>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label fw-bold text-secondary">الفترة السابقة</label>
+                <select name="p2" class="form-select" onchange="this.form.submit()">
+                    <option value="this_month" {{ 'selected' if p2_type == 'this_month' }}>هذا الشهر</option>
+                    <option value="last_month" {{ 'selected' if p2_type == 'last_month' }}>الشهر الماضي</option>
+                    <option value="last_30" {{ 'selected' if p2_type == 'last_30' }}>آخر 30 يوم</option>
+                    <option value="this_year" {{ 'selected' if p2_type == 'this_year' }}>هذه السنة</option>
+                </select>
+                <div class="small text-muted mt-1">{{ p2_from }} → {{ p2_to }}</div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- الإجمالي العام -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card kpi-card kpi-primary border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي المهام</div>
+                <h3 class="mb-0 text-white fw-bold">{{ totals.p1_missions }}</h3>
+                <hr class="my-2 bg-white-50">
+                <small class="text-white-50">
+                    السابقة: {{ totals.p2_missions }}
+                    <span class="badge bg-{{ grand_diffs.missions.color }} ms-2">
+                        {{ '%+.1f'|format(grand_diffs.missions.pct) }}%
+                    </span>
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card kpi-card kpi-info border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي الإيرادات</div>
+                <h3 class="mb-0 text-white fw-bold">{{ "{:,.0f}".format(totals.p1_revenue) }}</h3>
+                <hr class="my-2 bg-white-50">
+                <small class="text-white-50">
+                    السابقة: {{ "{:,.0f}".format(totals.p2_revenue) }}
+                    <span class="badge bg-{{ grand_diffs.revenue.color }} ms-2">
+                        {{ '%+.1f'|format(grand_diffs.revenue.pct) }}%
+                    </span>
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card kpi-card kpi-success border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي الأرباح</div>
+                <h3 class="mb-0 text-white fw-bold">{{ "{:,.0f}".format(totals.p1_profit) }}</h3>
+                <hr class="my-2 bg-white-50">
+                <small class="text-white-50">
+                    السابقة: {{ "{:,.0f}".format(totals.p2_profit) }}
+                    <span class="badge bg-{{ grand_diffs.profit.color }} ms-2">
+                        {{ '%+.1f'|format(grand_diffs.profit.pct) }}%
+                    </span>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- الجدول -->
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-dark text-white">
+        <h6 class="mb-0">تفصيل كل عقد</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>العقد</th>
+                    <th>المورد</th>
+                    <th class="text-center">مهام حالياً</th>
+                    <th class="text-center">مهام سابقاً</th>
+                    <th class="text-center">فرق المهام</th>
+                    <th class="text-end">إيراد حالياً</th>
+                    <th class="text-end">فرق الإيراد</th>
+                    <th class="text-center">مقارنة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in results %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <a href="{{ url_for('contracts.view_contract', cid=r.contract.id) }}">
+                            <code class="text-primary">{{ r.contract.contract_number }}</code>
+                        </a>
+                    </td>
+                    <td>{{ r.contract.supplier.company_name_ar[:30] }}</td>
+                    <td class="text-center"><span class="badge bg-primary">{{ r.p1.count }}</span></td>
+                    <td class="text-center"><span class="badge bg-secondary">{{ r.p2.count }}</span></td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ 'success' if r.missions_diff >= 0 else 'danger' }}">
+                            {{ '%+d'|format(r.missions_diff) }}
+                        </span>
+                    </td>
+                    <td class="text-end">{{ "{:,.0f}".format(r.p1.revenue) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if r.revenue_diff >= 0 else 'text-danger' }}">
+                        {{ "%+,.0f"|format(r.revenue_diff) }}
+                    </td>
+                    <td class="text-center">
+                        <a href="{{ url_for('contracts.compare_contract', cid=r.contract.id) }}"
+                           class="btn btn-sm btn-info">
+                            <i class="bi bi-bar-chart"></i> تفصيل
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="text-center text-muted py-4">لا توجد بيانات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

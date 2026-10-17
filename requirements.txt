@@ -1,0 +1,17 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Flask-WTF
+Flask-Migrate
+WTForms
+Werkzeug
+SQLAlchemy
+email-validator
+python-dotenv
+openpyxl
+APScheduler
+Pillow
+weasyprint
+pdfplumber
+pytesseract
+Pillow

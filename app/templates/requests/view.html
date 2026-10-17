@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}الطلب {{ req.request_number }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-clipboard-check text-primary"></i>
+            {{ req.request_number }}
+        </h3>
+        <p class="text-muted mb-0">{{ req.title }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if req.status == 'draft' and (req.requester_id == current_user.id or current_user.is_admin) %}
+        <a href="{{ url_for('requests.edit_request', rid=req.id) }}"
+           class="btn btn-warning">
+            <i class="bi bi-pencil"></i> تعديل
+        </a>
+        {% endif %}
+        <a href="{{ url_for('requests.list_requests') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- ============ العمود الأيسر ============ -->
+    <div class="col-lg-8">
+
+        <!-- معلومات الطلب -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> تفاصيل الطلب</h6>
+                <div>
+                    <span class="badge bg-{{ req.priority_color() }} me-1">
+                        {{ req.priority_label() }}
+                    </span>
+                    {{ req.status | state_badge('equipment_request') | safe }}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الطالب</small>
+                        <strong>{{ req.requester.full_name if req.requester else '—' }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">القسم</small>
+                        <span>{{ req.department or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الجهة</small>
+                        <span>{{ req.client_entity or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المنطقة</small>
+                        <span>{{ req.region or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الموقع التفصيلي</small>
+                        <span>{{ req.location or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المدة</small>
+                        {% if req.needed_from and req.needed_until %}
+                            {{ req.needed_from.strftime('%Y-%m-%d') }}
+                            →
+                            {{ req.needed_until.strftime('%Y-%m-%d') }}
+                            <span class="badge bg-info text-dark">
+                                {{ req.days_duration() }} يوم
+                            </span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </div>
+                    {% if req.reason %}
+                    <div class="col-12">
+                        <small class="text-muted d-block">سبب الطلب</small>
+                        <p class="mb-0" style="white-space: pre-line;">{{ req.reason }}</p>
+                    </div>
+                    {% endif %}
+                    {% if req.rejection_reason %}
+                    <div class="col-12">
+                        <div class="alert alert-danger py-2 mb-0">
+                            <strong>سبب الرفض:</strong>
+                            {{ req.rejection_reason }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- المعدات المطلوبة -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-truck text-primary"></i>
+                    المعدات المطلوبة
+                    <span class="badge bg-secondary">{{ req.total_items }}</span>
+                </h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="width: 60px;">#</th>
+                            <th>نوع المعدة</th>
+                            <th class="text-center">الكمية</th>
+                            <th>ملاحظات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in req.items %}
+                        <tr>
+                            <td class="text-center">{{ loop.index }}</td>
+                            <td>
+                                <strong>{{ item.equipment_name_ar() }}</strong>
+                                {% if item.equipment_name_en() %}
+                                    <br><small class="text-muted">{{ item.equipment_name_en() }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary fs-6">{{ item.quantity }}</span>
+                            </td>
+                            <td>
+                                <small>{{ item.notes or '—' }}</small>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-3">
+                                لا توجد بنود
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        {% if logs %}
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-clock-history text-primary"></i> سجل الإجراءات
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="workflow-timeline">
+                    {% for log in logs %}
+                    <div class="workflow-step done">
+                        <div class="dot"></div>
+                        <div class="step-title">
+                            {% if log.action == 'submit' %}📤 تقديم الطلب
+                            {% elif log.action == 'start_review' %}🔍 بدء المراجعة
+                            {% elif log.action == 'approve' %}✅ اعتماد
+                            {% elif log.action == 'reject' %}❌ رفض
+                            {% elif log.action == 'mark_contracted' %}📝 تم التعاقد
+                            {% elif log.action == 'fulfill' %}🎯 تنفيذ
+                            {% elif log.action == 'cancel' %}🚫 إلغاء
+                            {% else %}{{ log.action }}
+                            {% endif %}
+                        </div>
+                        <div class="step-meta">
+                            {{ log.performed_by.full_name if log.performed_by else 'النظام' }} —
+                            {{ log.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            <br>
+                            <small class="text-muted">
+                                من
+                                {{ log.from_state | state_badge('equipment_request') | safe }}
+                                إلى
+                                {{ log.to_state | state_badge('equipment_request') | safe }}
+                            </small>
+                        </div>
+                        {% if log.comment %}
+                        <div class="step-comment">
+                            <i class="bi bi-chat-left-quote"></i> {{ log.comment }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- ============ العمود الأيمن — الإجراءات ============ -->
+    <div class="col-lg-4">
+        <!-- زر إنشاء عقد (إذا الطلب معتمد) -->
+        {% if req.status == 'approved' and has_permission('contracts.create') %}
+        <div class="card shadow-sm border-success border-2 mb-3">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="bi bi-file-earmark-plus"></i> جاهز للتعاقد</h6>
+            </div>
+            <div class="card-body">
+                <p class="small mb-2">
+                    الطلب معتمد — يمكنك الآن إنشاء عقد مع مورد.
+                </p>
+                <a href="{{ url_for('contracts.add_from_request', rid=req.id) }}"
+                   class="btn btn-success w-100">
+                    <i class="bi bi-plus-circle"></i> إنشاء عقد من هذا الطلب
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if req.matched_contract_id %}
+        <div class="card shadow-sm border-info border-2 mb-3">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="bi bi-link-45deg"></i> عقد مرتبط</h6>
+            </div>
+            <div class="card-body">
+                <p class="small mb-2">تم ربط هذا الطلب بعقد:</p>
+                <a href="{{ url_for('contracts.view_contract', cid=req.matched_contract_id) }}"
+                   class="btn btn-info w-100">
+                    <i class="bi bi-eye"></i> عرض العقد
+                </a>
+            </div>
+        </div>
+        {% endif %}
+        <!-- الإجراءات المتاحة -->
+        {% if actions %}
+        <div class="card shadow-sm border-primary border-2 mb-3">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-lightning-charge"></i> إجراءات متاحة</h6>
+            </div>
+            <div class="card-body">
+                {% set ns = namespace(needs_comment=false) %}
+                {% for action in actions %}
+                    {% if action.requires_comment %}
+                        {% set ns.needs_comment = true %}
+                    {% endif %}
+                {% endfor %}
+
+                {% if ns.needs_comment %}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">
+                        التعليق (مطلوب لبعض الإجراءات)
+                    </label>
+                    <textarea id="actionComment" class="form-control form-control-sm"
+                              rows="2" placeholder="اكتب سبب الرفض أو أي ملاحظة..."></textarea>
+                </div>
+                {% endif %}
+
+                <div class="d-grid gap-2">
+                    {% for action in actions %}
+                    <form method="POST"
+                          action="{{ url_for('requests.action_request', rid=req.id) }}"
+                          class="action-form"
+                          data-requires-comment="{{ 'true' if action.requires_comment else 'false' }}"
+                          data-label="{{ action.label_ar }}"
+                          {% if action.action in ['reject', 'cancel', 'fail', 'terminate'] %}
+                          onsubmit="return validateAction(this)"
+                          {% endif %}>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="{{ action.action }}">
+                        <input type="hidden" name="comment" value="">
+
+                        <button type="submit"
+                                class="btn btn-{% if action.action in ['approve', 'fulfill'] %}success{% elif action.action in ['reject', 'cancel'] %}danger{% else %}primary{% endif %} w-100">
+                            <i class="bi bi-arrow-right-circle"></i> {{ action.label_ar }}
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- حالة سريعة -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-flag text-warning"></i> الحالة</h6>
+            </div>
+            <div class="card-body text-center">
+                {{ req.status | state_badge('equipment_request') | safe }}
+                {% if req.status == 'draft' and req.requester_id == current_user.id %}
+                    <div class="alert alert-info py-2 mt-3 mb-0 small">
+                        <i class="bi bi-info-circle"></i>
+                        هذا طلب مسودة — قدّمه للمراجعة عند الانتهاء.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- الحذف -->
+        {% if has_permission('requests.delete') and req.status in ['draft', 'rejected', 'cancelled'] %}
+        <div class="card shadow-sm border-danger border-2">
+            <div class="card-header bg-danger text-white">
+                <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> منطقة الخطر</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST"
+                      action="{{ url_for('requests.delete_request', rid=req.id) }}"
+                      onsubmit="return confirm('⚠️ حذف الطلب {{ req.request_number }} نهائياً؟\n\nلا يمكن التراجع!');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-danger w-100">
+                        <i class="bi bi-trash"></i> حذف الطلب
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+<script>
+// تمرير التعليق لكل نموذج action عند التقديم
+document.querySelectorAll('.action-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const commentEl = document.getElementById('actionComment');
+        if (commentEl) {
+            form.querySelector('input[name="comment"]').value = commentEl.value;
+        }
+    });
+});
+
+function validateAction(form) {
+    const needsComment = form.dataset.requiresComment === 'true';
+    const label = form.dataset.label || 'هذا الإجراء';
+    const commentEl = document.getElementById('actionComment');
+    const comment = commentEl ? commentEl.value.trim() : '';
+
+    if (needsComment && !comment) {
+        alert(`⚠️ "${label}" يتطلب تعليقاً/سبباً — يرجى كتابته أولاً.`);
+        if (commentEl) commentEl.focus();
+        return false;
+    }
+
+    return confirm(`هل تريد تنفيذ "${label}"؟`);
+}
+</script>
+
+{% endblock %}

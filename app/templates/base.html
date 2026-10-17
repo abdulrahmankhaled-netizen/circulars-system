@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
+
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+{% if current_user.is_authenticated %}
+<nav class="navbar navbar-expand-lg navbar-dark app-navbar">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="{{ url_for('dashboard.index') }}">
+            <i class="bi bi-truck-front-fill"></i> {{ APP_NAME }}
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'dashboard' %}active{% endif %}"
+                       href="{{ url_for('dashboard.index') }}">
+                        <i class="bi bi-speedometer2"></i> الرئيسية
+                    </a>
+                </li>
+                                            {% if has_permission('suppliers.view') %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'suppliers' %}active{% endif %}"
+                       href="{{ url_for('suppliers.list_suppliers') }}">
+                        <i class="bi bi-building"></i> الموردون
+                    </a>
+                </li>
+                {% endif %}
+                               {% if has_permission('contracts.view') %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'contracts' %}active{% endif %}"
+                       href="{{ url_for('contracts.list_contracts') }}">
+                        <i class="bi bi-file-earmark-text"></i> العقود
+                    </a>
+                </li>
+                {% endif %}
+                {% if has_permission('equipment.view') %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if request.blueprint == 'equipment' %}active{% endif %}"
+                       href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-tags"></i> المعدات
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('equipment.list_prices') }}">
+                                <i class="bi bi-cash-stack"></i> أسعار المعدات
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('equipment.list_types') }}">
+                                <i class="bi bi-list-ul"></i> أنواع الآليات
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                {% endif %}
+                {% if has_permission('requests.view') %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'requests' %}active{% endif %}"
+                       href="{{ url_for('requests.list_requests') }}">
+                        <i class="bi bi-clipboard-plus"></i> الطلبات
+                    </a>
+                </li>
+                {% endif %}
+                {% if has_permission('missions.view') %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'missions' %}active{% endif %}"
+                       href="{{ url_for('missions.list_missions') }}">
+                        <i class="bi bi-truck"></i> المهام
+                    </a>
+                </li>
+                {% endif %}
+                                {% if has_permission('invoices.view') %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'invoices' %}active{% endif %}"
+                       href="{{ url_for('invoices.list_invoices') }}">
+                        <i class="bi bi-receipt"></i> الفواتير
+                    </a>
+                </li>
+                {% endif %}
+                {% if has_permission('reports.view') %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'reports' %}active{% endif %}"
+                       href="{{ url_for('reports.index') }}">
+                        <i class="bi bi-file-bar-graph"></i> التقارير
+                    </a>
+                </li>
+                {% endif %}
+
+                             
+
+                {% if has_permission('users.view') %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.blueprint == 'users' %}active{% endif %}"
+                       href="{{ url_for('users.list_users') }}">
+                        <i class="bi bi-people"></i> المستخدمون
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+                       <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link position-relative" href="{{ url_for('notifications.index') }}"
+                       title="مركز التنبيهات">
+                        <i class="bi bi-bell fs-5"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                              id="notifBadge" style="display: none;">
+                            0
+                        </span>
+                    </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle"></i> {{ current_user.full_name }}
+                        <span class="badge bg-secondary ms-1">{{ current_user.role_label }}</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('auth.change_password') }}">
+                                <i class="bi bi-key"></i> تغيير كلمة المرور
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                <i class="bi bi-box-arrow-right"></i> تسجيل الخروج
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+{% endif %}
+
+<main class="container-fluid py-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="app-footer">
+    <small>© {{ current_year }} — {{ APP_NAME }}. جميع الحقوق محفوظة.</small>
+</footer>
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Floating Action Button (FAB) -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+{% if current_user.is_authenticated %}
+<div class="fab-container">
+    <!-- القائمة المنسدلة -->
+    <div class="fab-menu" id="fabMenu">
+        {% if has_permission('missions.create') %}
+        <a href="{{ url_for('missions.add_mission') }}" class="fab-item" title="مهمة جديدة">
+            <span class="fab-label">مهمة جديدة</span>
+            <span class="fab-icon bg-primary">
+                <i class="bi bi-truck"></i>
+            </span>
+        </a>
+
+        <a href="{{ url_for('missions.upload_excel') }}" class="fab-item" title="رفع Excel">
+            <span class="fab-label">رفع Excel</span>
+            <span class="fab-icon bg-success">
+                <i class="bi bi-cloud-upload"></i>
+            </span>
+        </a>
+        {% endif %}
+
+        {% if has_permission('invoices.create') %}
+        <a href="{{ url_for('invoices.add_invoice') }}" class="fab-item" title="فاتورة جديدة">
+            <span class="fab-label">فاتورة جديدة</span>
+            <span class="fab-icon bg-warning">
+                <i class="bi bi-receipt"></i>
+            </span>
+        </a>
+        {% endif %}
+
+        {% if has_permission('requests.create') %}
+        <a href="{{ url_for('requests.add_request') }}" class="fab-item" title="طلب معدة">
+            <span class="fab-label">طلب معدة</span>
+            <span class="fab-icon bg-info">
+                <i class="bi bi-clipboard-plus"></i>
+            </span>
+        </a>
+        {% endif %}
+
+        {% if has_permission('contracts.create') %}
+        <a href="{{ url_for('contracts.add_contract') }}" class="fab-item" title="عقد جديد">
+            <span class="fab-label">عقد جديد</span>
+            <span class="fab-icon bg-danger">
+                <i class="bi bi-file-earmark-plus"></i>
+            </span>
+        </a>
+        {% endif %}
+
+        {% if has_permission('suppliers.create') %}
+        <a href="{{ url_for('suppliers.add_supplier') }}" class="fab-item" title="مورد جديد">
+            <span class="fab-label">مورد جديد</span>
+            <span class="fab-icon bg-secondary">
+                <i class="bi bi-building-add"></i>
+            </span>
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- الزر العائم الرئيسي -->
+    <button type="button" class="fab-main" id="fabMain" title="إجراءات سريعة">
+        <i class="bi bi-plus-lg fab-icon-open"></i>
+        <i class="bi bi-x-lg fab-icon-close"></i>
+    </button>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- FAB Styles + Script -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<style>
+.fab-container {
+    position: fixed;
+    bottom: 30px;
+    left: 30px;   /* RTL: على اليسار */
+    z-index: 9999;
+}
+
+/* الزر الرئيسي */
+.fab-main {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    color: #fff;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(30, 64, 175, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.fab-main:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 28px rgba(30, 64, 175, 0.55);
+}
+
+.fab-main:active {
+    transform: scale(0.95);
+}
+
+/* أيقونات الزر (فتح/إغلاق) */
+.fab-icon-open,
+.fab-icon-close {
+    position: absolute;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.fab-icon-close {
+    opacity: 0;
+    transform: rotate(-90deg);
+}
+
+.fab-container.open .fab-icon-open {
+    opacity: 0;
+    transform: rotate(90deg);
+}
+
+.fab-container.open .fab-icon-close {
+    opacity: 1;
+    transform: rotate(0);
+}
+
+/* القائمة المنسدلة */
+.fab-menu {
+    position: absolute;
+    bottom: 75px;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fab-container.open .fab-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* عنصر من القائمة */
+.fab-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #333;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.3s;
+    transition-delay: calc(var(--i, 0) * 0.05s);
+}
+
+.fab-container.open .fab-item {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* تسمية زر */
+.fab-label {
+    background: #fff;
+    color: #1f4e78;
+    padding: 8px 14px;
+    border-radius: 25px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transition: all 0.2s;
+}
+
+.fab-item:hover .fab-label {
+    background: #1f4e78;
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(31, 78, 120, 0.35);
+}
+
+/* أيقونة الزر */
+.fab-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 18px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    transition: all 0.25s;
+    flex-shrink: 0;
+}
+
+.fab-item:hover .fab-icon {
+    transform: scale(1.12) rotate(-5deg);
+}
+
+/* ترتيب الأزرار في القائمة */
+.fab-item:nth-child(1) { --i: 5; }
+.fab-item:nth-child(2) { --i: 4; }
+.fab-item:nth-child(3) { --i: 3; }
+.fab-item:nth-child(4) { --i: 2; }
+.fab-item:nth-child(5) { --i: 1; }
+.fab-item:nth-child(6) { --i: 0; }
+
+/* خلفية معتمة عند الفتح */
+.fab-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 9998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+    backdrop-filter: blur(2px);
+}
+
+.fab-container.open ~ .fab-overlay,
+.fab-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* للطباعة */
+@media print {
+    .fab-container,
+    .fab-overlay {
+        display: none !important;
+    }
+}
+
+/* للجوال */
+@media (max-width: 768px) {
+    .fab-container {
+        bottom: 20px;
+        left: 20px;
+    }
+    .fab-main {
+        width: 54px;
+        height: 54px;
+        font-size: 22px;
+    }
+    .fab-icon {
+        width: 42px;
+        height: 42px;
+        font-size: 16px;
+    }
+    .fab-label {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+}
+</style>
+
+<!-- خلفية معتمة -->
+<div class="fab-overlay" id="fabOverlay"></div>
+
+<script>
+(function() {
+    const container = document.querySelector('.fab-container');
+    const mainBtn = document.getElementById('fabMain');
+    const overlay = document.getElementById('fabOverlay');
+
+    if (!container || !mainBtn) return;
+
+    function openFab() {
+        container.classList.add('open');
+        if (overlay) overlay.classList.add('active');
+    }
+
+    function closeFab() {
+        container.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+    }
+
+    // نقر على الزر الرئيسي
+    mainBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (container.classList.contains('open')) {
+            closeFab();
+        } else {
+            openFab();
+        }
+    });
+
+    // نقر على الخلفية
+    if (overlay) {
+        overlay.addEventListener('click', closeFab);
+    }
+
+    // ESC للإغلاق
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeFab();
+    });
+
+    // نقر على أي رابط في القائمة → إغلاق
+    container.querySelectorAll('.fab-item').forEach(item => {
+        item.addEventListener('click', closeFab);
+    });
+
+    // اختصار لوحة المفاتيح: Ctrl+K
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            if (container.classList.contains('open')) {
+                closeFab();
+            } else {
+                openFab();
+            }
+        }
+    });
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+{% if current_user.is_authenticated %}
+<script>
+(function() {
+    // تحديث شارة الإشعارات كل 60 ثانية
+    async function updateNotifCount() {
+        try {
+            const resp = await fetch('{{ url_for("notifications.api_count") }}');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const badge = document.getElementById('notifBadge');
+            if (!badge) return;
+
+            if (data.total > 0) {
+                badge.textContent = data.total > 99 ? '99+' : data.total;
+                badge.style.display = '';
+            } else {
+                badge.style.display = 'none';
+            }
+        } catch (err) {
+            // تجاهل الأخطاء
+        }
+    }
+
+    // نفّذ عند التحميل + كل دقيقة
+    updateNotifCount();
+    setInterval(updateNotifCount, 60000);
+})();
+</script>
+{% endif %}
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

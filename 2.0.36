@@ -1,0 +1,6 @@
+Collecting SQLAlchemy
+  Using cached sqlalchemy-2.1.4-cp314-cp314-win_amd64.whl.metadata (9.9 kB)
+Requirement already satisfied: typing-extensions>=4.6.0 in .\.venv\Lib\site-packages (from SQLAlchemy) (4.16.0)
+Using cached sqlalchemy-2.1.4-cp314-cp314-win_amd64.whl (2.4 MB)
+Installing collected packages: SQLAlchemy
+Successfully installed SQLAlchemy-2.1.4

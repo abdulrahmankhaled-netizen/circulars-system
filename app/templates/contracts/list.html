@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}العقود{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-file-earmark-text text-primary"></i> العقود
+        <span class="badge bg-secondary">{{ contracts|length }}</span>
+    </h3>
+    {% if has_permission('contracts.create') %}
+    <a href="{{ url_for('contracts.compare_all_contracts') }}" class="btn btn-info text-white">
+        <i class="bi bi-bar-chart-line"></i> مقارنة كل العقود
+    </a>
+    <a href="{{ url_for('contracts.add_contract') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> عقد جديد
+    </a>
+    {% endif %}
+</div>
+
+<!-- KPI -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-primary border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي العقود</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.total }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-success border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">نشطة</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.active }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-warning border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">بانتظار التوقيع</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.pending_signature }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-info border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي القيمة النشطة</div>
+                <h3 class="mb-0 text-white fw-bold">
+                    {{ "{:,.0f}".format(stats.total_value) }}
+                </h3>
+                <small class="text-white-50">AED</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- فلترة -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-bold">بحث</label>
+                <input type="text" name="q" value="{{ q }}" class="form-control"
+                       placeholder="رقم العقد، الجهة، المنطقة...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">الحالة</label>
+                <select name="status" class="form-select">
+                    <option value="">— الكل —</option>
+                    <option value="draft" {{ 'selected' if status_filter == 'draft' }}>مسودة</option>
+                    <option value="pending_signature" {{ 'selected' if status_filter == 'pending_signature' }}>بانتظار التوقيع</option>
+                    <option value="active" {{ 'selected' if status_filter == 'active' }}>نشط</option>
+                    <option value="expiring" {{ 'selected' if status_filter == 'expiring' }}>قارب الانتهاء</option>
+                    <option value="expired" {{ 'selected' if status_filter == 'expired' }}>منتهي</option>
+                    <option value="terminated" {{ 'selected' if status_filter == 'terminated' }}>ملغى</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">المورد</label>
+                <select name="supplier" class="form-select">
+                    <option value="">— الكل —</option>
+                    {% for s in suppliers %}
+                        <option value="{{ s.id }}" {{ 'selected' if supplier_filter == s.id|string }}>
+                            {{ s.company_name_ar }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-primary flex-fill"><i class="bi bi-search"></i></button>
+                <a href="{{ url_for('contracts.list_contracts') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- الجدول -->
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-center" style="width: 60px;">#</th>
+                    <th>رقم العقد</th>
+                    <th>المورد</th>
+                    <th>الجهة / المنطقة</th>
+                    <th class="text-center">الفترة</th>
+                    <th class="text-end">القيمة</th>
+                    <th class="text-center">الحالة</th>
+                    <th class="text-center" style="width: 140px;">إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in contracts %}
+                <tr>
+                    <td class="text-center">{{ c.id }}</td>
+                    <td>
+                        <a href="{{ url_for('contracts.view_contract', cid=c.id) }}"
+                           class="text-decoration-none">
+                            <code class="text-primary fw-bold">{{ c.contract_number }}</code>
+                        </a>
+                        {% if c.signed_document %}
+                            <i class="bi bi-paperclip text-success ms-1" title="موقّع"></i>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('suppliers.view_supplier', sid=c.supplier.id) }}"
+                           class="text-decoration-none">
+                            {{ c.supplier.company_name_ar }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if c.client_entity %}
+                            <span class="badge bg-primary">{{ c.client_entity }}</span>
+                        {% endif %}
+                        {% if c.region %}
+                            <span class="badge bg-info text-dark">{{ c.region }}</span>
+                        {% endif %}
+                        {% if not c.client_entity and not c.region %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if c.start_date and c.end_date %}
+                            <small>
+                                {{ c.start_date.strftime('%Y-%m-%d') }}
+                                <br>→
+                                {{ c.end_date.strftime('%Y-%m-%d') }}
+                            </small>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <strong class="text-success">
+                            {{ "{:,.0f}".format(c.value or 0) }}
+                        </strong>
+                        <small class="text-muted d-block">
+                            {{ c.value_period_label() }}
+                        </small>
+                    </td>
+                    <td class="text-center">
+                        {{ c.status | state_badge('contract') | safe }}
+                    </td>
+                    <td class="text-center" style="white-space: nowrap;">
+                        <a href="{{ url_for('contracts.view_contract', cid=c.id) }}"
+                           class="btn btn-sm btn-info btn-icon-only" title="عرض">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if has_permission('contracts.edit') %}
+                        <a href="{{ url_for('contracts.edit_contract', cid=c.id) }}"
+                           class="btn btn-sm btn-warning btn-icon-only" title="تعديل">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                        {% if has_permission('contracts.delete') %}
+                        <form method="POST"
+                              action="{{ url_for('contracts.delete_contract', cid=c.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('حذف العقد {{ c.contract_number }}؟');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-danger btn-icon-only" title="حذف">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">
+                        <i class="bi bi-file-earmark-x fs-2 d-block mb-2"></i>
+                        لا توجد عقود بعد
+                        {% if has_permission('contracts.create') %}
+                            <br><a href="{{ url_for('contracts.add_contract') }}">أنشئ أول عقد</a>
+                            <br><small class="text-muted mt-2 d-block">
+                                أو اذهب للطلبات المعتمدة وأنشئ عقداً منها
+                            </small>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

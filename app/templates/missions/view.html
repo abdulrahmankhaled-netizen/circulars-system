@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}{{ mission.mission_number }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-truck text-primary"></i>
+            {{ mission.mission_number }}
+        </h3>
+        <p class="text-muted mb-0">
+            {{ mission.equipment_name_ar() }}
+            {% if mission.vehicle_plate %}
+                — لوحة: {{ mission.vehicle_plate }}
+            {% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if has_permission('missions.edit') %}
+        <a href="{{ url_for('missions.edit_mission', mid=mission.id) }}"
+           class="btn btn-warning">
+            <i class="bi bi-pencil"></i> تعديل
+        </a>
+        {% endif %}
+        <a href="{{ url_for('missions.list_missions') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- ============ العمود الأيسر ============ -->
+    <div class="col-lg-8">
+
+        <!-- تفاصيل المهمة -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> تفاصيل المهمة</h6>
+                {{ mission.status | state_badge('mission') | safe }}
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">العقد</small>
+                        <a href="{{ url_for('contracts.view_contract', cid=mission.contract_id) }}"
+                           class="text-decoration-none">
+                            <strong>{{ mission.contract.contract_number }}</strong>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المعدة</small>
+                        <span>{{ mission.equipment_name_ar() }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المركبة</small>
+                        <span>
+                            {% if mission.vehicle_make or mission.vehicle_model %}
+                                {{ mission.vehicle_make or '' }} {{ mission.vehicle_model or '' }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">رقم الهيكل</small>
+                        <span>{{ mission.vehicle_vin or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">العميل</small>
+                        <span>{{ mission.customer_name or '—' }}</span>
+                        {% if mission.customer_phone %}
+                            <br><small class="text-muted" dir="ltr">{{ mission.customer_phone }}</small>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المنطقة</small>
+                        <span>{{ mission.region or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">موقع الاستلام</small>
+                        <span>{{ mission.pickup_location or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">موقع التسليم</small>
+                        <span>{{ mission.drop_location or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">السائق</small>
+                        <span>{{ mission.driver_name or '—' }}</span>
+                        {% if mission.driver_phone %}
+                            <br><small class="text-muted" dir="ltr">{{ mission.driver_phone }}</small>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المدة</small>
+                        <span>{{ mission.duration_label() }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- المالية -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-cash-coin text-success"></i> المالية</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded">
+                            <small class="text-muted d-block">التكلفة (للمورد)</small>
+                            <h4 class="mb-0 text-warning">
+                                {{ "{:,.2f}".format(mission.cost or 0) }} AED
+                            </h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded">
+                            <small class="text-muted d-block">الإيراد (من العميل)</small>
+                            <h4 class="mb-0 text-primary">
+                                {{ "{:,.2f}".format(mission.revenue or 0) }} AED
+                            </h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 border rounded bg-light">
+                            <small class="text-muted d-block">الربح</small>
+                            <h4 class="mb-0 {{ 'text-success' if (mission.profit or 0) >= 0 else 'text-danger' }}">
+                                {{ "{:+,.2f}".format(mission.profit or 0) }} AED
+                            </h4>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الدفع للمورد</small>
+                        <span class="badge bg-{{ mission.supplier_payment_color() }} fs-6">
+                            {{ mission.supplier_payment_label() }}
+                        </span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الفاتورة للعميل</small>
+                        <span class="badge bg-{{ mission.customer_invoice_color() }} fs-6">
+                            {{ mission.customer_invoice_label() }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ملاحظات -->
+        {% if mission.notes or mission.completion_notes %}
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-journal-text text-primary"></i> ملاحظات</h6>
+            </div>
+            <div class="card-body">
+                {% if mission.notes %}
+                    <p class="mb-2"><strong>ملاحظات عامة:</strong></p>
+                    <p style="white-space: pre-line;">{{ mission.notes }}</p>
+                {% endif %}
+                {% if mission.completion_notes %}
+                    <hr>
+                    <p class="mb-2"><strong>ملاحظات الإنجاز:</strong></p>
+                    <p style="white-space: pre-line;">{{ mission.completion_notes }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Timeline -->
+        {% if logs %}
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-clock-history text-primary"></i> سجل الإجراءات</h6>
+            </div>
+            <div class="card-body">
+                <div class="workflow-timeline">
+                    {% for log in logs %}
+                    <div class="workflow-step done">
+                        <div class="dot"></div>
+                        <div class="step-title">
+                            {% if log.action == 'assign' %}👤 تعيين
+                            {% elif log.action == 'start' %}🚗 بدء التنفيذ
+                            {% elif log.action == 'complete' %}✅ إكمال
+                            {% elif log.action == 'verify' %}✔️ تحقق
+                            {% elif log.action == 'fail' %}❌ فشل
+                            {% elif log.action == 'cancel' %}🚫 إلغاء
+                            {% else %}{{ log.action }}
+                            {% endif %}
+                        </div>
+                        <div class="step-meta">
+                            {{ log.performed_by.full_name if log.performed_by else 'النظام' }} —
+                            {{ log.created_at.strftime('%Y-%m-%d %H:%M') }}
+                        </div>
+                        {% if log.comment %}
+                        <div class="step-comment">
+                            <i class="bi bi-chat-left-quote"></i> {{ log.comment }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- ============ العمود الأيمن ============ -->
+    <div class="col-lg-4">
+
+        <!-- الإجراءات -->
+        {% if actions %}
+        <div class="card shadow-sm border-primary border-2 mb-3">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-lightning-charge"></i> إجراءات متاحة</h6>
+            </div>
+            <div class="card-body">
+                {% set ns = namespace(needs_comment=false) %}
+                {% for action in actions %}
+                    {% if action.requires_comment %}
+                        {% set ns.needs_comment = true %}
+                    {% endif %}
+                {% endfor %}
+
+                {% if ns.needs_comment %}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">التعليق (مطلوب)</label>
+                    <textarea id="actionComment" class="form-control form-control-sm"
+                              rows="2"></textarea>
+                </div>
+                {% endif %}
+
+                <div class="d-grid gap-2">
+                    {% for action in actions %}
+                    <form method="POST"
+                          action="{{ url_for('missions.action_mission', mid=mission.id) }}"
+                          class="action-form"
+                          data-requires-comment="{{ 'true' if action.requires_comment else 'false' }}"
+                          data-label="{{ action.label_ar }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="{{ action.action }}">
+                        <input type="hidden" name="comment" value="">
+                        <button type="submit"
+                                class="btn btn-{% if action.action in ['complete', 'verify', 'paid'] %}success{% elif action.action in ['fail', 'cancel'] %}danger{% else %}primary{% endif %} w-100">
+                            <i class="bi bi-arrow-right-circle"></i> {{ action.label_ar }}
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- حالة سريعة -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-flag text-warning"></i> الحالة</h6>
+            </div>
+            <div class="card-body text-center">
+                {{ mission.status | state_badge('mission') | safe }}
+                {% if mission.assigned_to %}
+                    <hr>
+                    <small class="text-muted">مُعيّنة إلى:</small>
+                    <br><strong>{{ mission.assigned_to.full_name }}</strong>
+                    {% if mission.assigned_at %}
+                        <br><small class="text-muted">{{ mission.assigned_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                    {% endif %}
+                {% endif %}
+                {% if mission.verified_by %}
+                    <hr>
+                    <small class="text-muted">تحقق بواسطة:</small>
+                    <br><strong>{{ mission.verified_by.full_name }}</strong>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- حذف -->
+        {% if has_permission('missions.delete') and mission.status not in ['paid', 'invoiced'] %}
+        <div class="card shadow-sm border-danger border-2">
+            <div class="card-header bg-danger text-white">
+                <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> منطقة الخطر</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST"
+                      action="{{ url_for('missions.delete_mission', mid=mission.id) }}"
+                      onsubmit="return confirm('⚠️ حذف المهمة {{ mission.mission_number }}؟\n\nلا يمكن التراجع!');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-danger w-100">
+                        <i class="bi bi-trash"></i> حذف المهمة
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.action-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const commentEl = document.getElementById('actionComment');
+        if (commentEl) {
+            form.querySelector('input[name="comment"]').value = commentEl.value;
+        }
+        const needsComment = form.dataset.requiresComment === 'true';
+        const label = form.dataset.label || 'الإجراء';
+        if (needsComment && (!commentEl || !commentEl.value.trim())) {
+            e.preventDefault();
+            alert(`⚠️ "${label}" يتطلب تعليقاً`);
+            if (commentEl) commentEl.focus();
+            return false;
+        }
+        return confirm(`تنفيذ "${label}"؟`);
+    });
+});
+</script>
+
+{% endblock %}
+        <!-- فواتير المهمة -->
+        {% if has_permission('invoices.create') %}
+        <div class="card shadow-sm border-primary border-2 mb-3">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-receipt"></i> فواتير المهمة</h6>
+            </div>
+            <div class="card-body">
+
+                <!-- فاتورة المورد -->
+                {% set supplier_invoice = mission.invoices | selectattr('invoice_type', 'equalto', 'supplier') | first %}
+                {% if supplier_invoice %}
+                    <div class="alert alert-{{ supplier_invoice.status_color() }} py-2 mb-2 small">
+                        <strong>💸 فاتورة مورد:</strong>
+                        <a href="{{ url_for('invoices.view_invoice', iid=supplier_invoice.id) }}">
+                            {{ supplier_invoice.invoice_number }}
+                        </a>
+                        — {{ supplier_invoice.status_label() }}
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('invoices.add_invoice', type='supplier', mission=mission.id) }}"
+                       class="btn btn-warning btn-sm w-100 mb-2">
+                        <i class="bi bi-plus-circle"></i> إنشاء فاتورة مورد
+                    </a>
+                {% endif %}
+
+                <!-- فاتورة العميل -->
+                {% set customer_invoice = mission.invoices | selectattr('invoice_type', 'equalto', 'customer') | first %}
+                {% if customer_invoice %}
+                    <div class="alert alert-{{ customer_invoice.status_color() }} py-2 mb-2 small">
+                        <strong>📥 فاتورة عميل:</strong>
+                        <a href="{{ url_for('invoices.view_invoice', iid=customer_invoice.id) }}">
+                            {{ customer_invoice.invoice_number }}
+                        </a>
+                        — {{ customer_invoice.status_label() }}
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('invoices.add_invoice', type='customer', mission=mission.id) }}"
+                       class="btn btn-primary btn-sm w-100 mb-2">
+                        <i class="bi bi-plus-circle"></i> إنشاء فاتورة عميل
+                    </a>
+                {% endif %}
+
+                <!-- عرض كل الفواتير -->
+                {% if mission.invoices %}
+                    <a href="{{ url_for('invoices.list_invoices', q=mission.mission_number) }}"
+                       class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-list-ul"></i> كل الفواتير ({{ mission.invoices|length }})
+                    </a>
+                {% endif %}
+
+            </div>
+        </div>
+        {% endif %}

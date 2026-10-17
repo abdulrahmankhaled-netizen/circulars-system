@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}تحليل الأرباح{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-graph-up-arrow text-success"></i> تحليل الأرباح
+    </h3>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('reports.export_profit', period=period, from_date=from_date, to_date=to_date) }}"
+           class="btn btn-success">
+            <i class="bi bi-file-earmark-excel"></i> تصدير Excel
+        </a>
+        <button onclick="window.print()" class="btn btn-dark">
+            <i class="bi bi-printer"></i> طباعة
+        </button>
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<!-- الفلترة -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">فترة سريعة</label>
+                <select name="period" class="form-select" onchange="this.form.submit()">
+                    <option value="">— تواريخ مخصصة —</option>
+                    <option value="today" {{ 'selected' if period == 'today' }}>اليوم</option>
+                    <option value="this_week" {{ 'selected' if period == 'this_week' }}>هذا الأسبوع</option>
+                    <option value="this_month" {{ 'selected' if period == 'this_month' }}>هذا الشهر</option>
+                    <option value="last_month" {{ 'selected' if period == 'last_month' }}>الشهر الماضي</option>
+                    <option value="last_30" {{ 'selected' if period == 'last_30' }}>آخر 30 يوم</option>
+                    <option value="last_7" {{ 'selected' if period == 'last_7' }}>آخر 7 أيام</option>
+                    <option value="this_year" {{ 'selected' if period == 'this_year' }}>هذه السنة</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">من تاريخ</label>
+                <input type="date" name="from_date" value="{{ from_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">إلى تاريخ</label>
+                <input type="date" name="to_date" value="{{ to_date }}" class="form-control">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> عرض</button>
+                <a href="{{ url_for('reports.profit') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-primary border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي المهام</div>
+                <h2 class="mb-0 text-white fw-bold">{{ totals.missions }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-info border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">الإيرادات</div>
+                <h2 class="mb-0 text-white fw-bold">
+                    {{ "{:,.0f}".format(totals.revenue) }}
+                </h2>
+                <small class="text-white-50">AED</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-warning border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">التكاليف</div>
+                <h2 class="mb-0 text-white fw-bold">
+                    {{ "{:,.0f}".format(totals.cost) }}
+                </h2>
+                <small class="text-white-50">AED</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card {{ 'kpi-success' if totals.profit >= 0 else 'kpi-danger' }} border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">صافي الربح</div>
+                <h2 class="mb-0 text-white fw-bold">
+                    {{ "{:,.0f}".format(totals.profit) }}
+                </h2>
+                <small class="text-white-50">هامش: {{ totals.margin }}%</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- حسب العقد -->
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-header bg-primary text-white">
+        <h6 class="mb-0"><i class="bi bi-file-earmark-text"></i> الأرباح حسب العقد</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>رقم العقد</th>
+                    <th>المورد</th>
+                    <th class="text-center">المهام</th>
+                    <th class="text-end">الإيرادات</th>
+                    <th class="text-end">التكاليف</th>
+                    <th class="text-end">الربح</th>
+                    <th class="text-center">الهامش</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in per_contract %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <a href="{{ url_for('contracts.view_contract', cid=r.contract.id) }}">
+                            <code>{{ r.contract.contract_number }}</code>
+                        </a>
+                    </td>
+                    <td>{{ r.contract.supplier.company_name_ar }}</td>
+                    <td class="text-center"><span class="badge bg-primary">{{ r.missions }}</span></td>
+                    <td class="text-end">{{ "{:,.0f}".format(r.revenue) }}</td>
+                    <td class="text-end text-warning">{{ "{:,.0f}".format(r.cost) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if r.profit >= 0 else 'text-danger' }}">
+                        {{ "{:+,.0f}".format(r.profit) }}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ 'success' if r.margin >= 20 else 'warning' if r.margin >= 10 else 'danger' }}">
+                            {{ r.margin }}%
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-3">لا توجد بيانات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- حسب المورد -->
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-header bg-success text-white">
+        <h6 class="mb-0"><i class="bi bi-people"></i> الأرباح حسب المورد</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>المورد</th>
+                    <th class="text-center">المهام</th>
+                    <th class="text-end">الإيرادات</th>
+                    <th class="text-end">التكاليف</th>
+                    <th class="text-end">الربح</th>
+                    <th class="text-center">الهامش</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in per_supplier %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <a href="{{ url_for('suppliers.view_supplier', sid=r.supplier.id) }}">
+                            <strong>{{ r.supplier.company_name_ar }}</strong>
+                        </a>
+                    </td>
+                    <td class="text-center"><span class="badge bg-primary">{{ r.missions }}</span></td>
+                    <td class="text-end">{{ "{:,.0f}".format(r.revenue) }}</td>
+                    <td class="text-end text-warning">{{ "{:,.0f}".format(r.cost) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if r.profit >= 0 else 'text-danger' }}">
+                        {{ "{:+,.0f}".format(r.profit) }}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ 'success' if r.margin >= 20 else 'warning' if r.margin >= 10 else 'danger' }}">
+                            {{ r.margin }}%
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-3">لا توجد بيانات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- حسب المعدة -->
+<div class="card shadow-sm border-0 mb-3">
+    <div class="card-header bg-info text-white">
+        <h6 class="mb-0"><i class="bi bi-tags"></i> الأرباح حسب المعدة</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>المعدة</th>
+                    <th class="text-center">المهام</th>
+                    <th class="text-end">الإيرادات</th>
+                    <th class="text-end">التكاليف</th>
+                    <th class="text-end">الربح</th>
+                    <th class="text-center">الهامش</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in per_equipment %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><strong>{{ r.name }}</strong></td>
+                    <td class="text-center"><span class="badge bg-primary">{{ r.missions }}</span></td>
+                    <td class="text-end">{{ "{:,.0f}".format(r.revenue) }}</td>
+                    <td class="text-end text-warning">{{ "{:,.0f}".format(r.cost) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if r.profit >= 0 else 'text-danger' }}">
+                        {{ "{:+,.0f}".format(r.profit) }}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ 'success' if r.margin >= 20 else 'warning' if r.margin >= 10 else 'danger' }}">
+                            {{ r.margin }}%
+                        </span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-3">لا توجد بيانات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- حسب الشهر -->
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-dark text-white">
+        <h6 class="mb-0"><i class="bi bi-calendar"></i> الأرباح الشهرية</h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>الشهر</th>
+                    <th class="text-center">المهام</th>
+                    <th class="text-end">الإيرادات</th>
+                    <th class="text-end">التكاليف</th>
+                    <th class="text-end">الربح</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in per_month %}
+                <tr>
+                    <td><strong>{{ r.month }}</strong></td>
+                    <td class="text-center">{{ r.missions }}</td>
+                    <td class="text-end">{{ "{:,.0f}".format(r.revenue) }}</td>
+                    <td class="text-end text-warning">{{ "{:,.0f}".format(r.cost) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if r.profit >= 0 else 'text-danger' }}">
+                        {{ "{:+,.0f}".format(r.profit) }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center text-muted py-3">لا توجد بيانات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}تقرير المهام{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-truck text-info"></i> تقرير المهام
+    </h3>
+    <div class="d-flex gap-2 flex-wrap">
+        <button onclick="window.print()" class="btn btn-dark">
+            <i class="bi bi-printer"></i> طباعة
+        </button>
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<!-- الفلترة -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">فترة سريعة</label>
+                <select name="period" class="form-select" onchange="this.form.submit()">
+                    <option value="">— تواريخ مخصصة —</option>
+                    <option value="today" {{ 'selected' if period == 'today' }}>اليوم</option>
+                    <option value="this_month" {{ 'selected' if period == 'this_month' }}>هذا الشهر</option>
+                    <option value="last_month" {{ 'selected' if period == 'last_month' }}>الشهر الماضي</option>
+                    <option value="last_30" {{ 'selected' if period == 'last_30' }}>آخر 30 يوم</option>
+                    <option value="this_year" {{ 'selected' if period == 'this_year' }}>هذه السنة</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">من تاريخ</label>
+                <input type="date" name="from_date" value="{{ from_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">إلى تاريخ</label>
+                <input type="date" name="to_date" value="{{ to_date }}" class="form-control">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> عرض</button>
+                <a href="{{ url_for('reports.missions_report') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-primary border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي المهام</div>
+                <h2 class="mb-0 text-white fw-bold">{{ stats.total }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-success border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">مكتملة</div>
+                <h2 class="mb-0 text-white fw-bold">{{ stats.completed }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-info border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">تم التحقق</div>
+                <h2 class="mb-0 text-white fw-bold">{{ stats.verified }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-warning border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">مدفوعة</div>
+                <h2 class="mb-0 text-white fw-bold">{{ stats.paid }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- حسب الحالة -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-flag"></i> حسب الحالة</h6>
+            </div>
+            <div class="card-body">
+                {% for status, count in by_status.items() %}
+                <div class="d-flex justify-content-between mb-2">
+                    <span>{{ status | state_badge('mission') | safe }}</span>
+                    <strong>{{ count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- حسب المعدة -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="bi bi-tags"></i> حسب المعدة</h6>
+            </div>
+            <div class="card-body">
+                {% for key, count in by_equipment[:10] %}
+                <div class="d-flex justify-content-between mb-2">
+                    <span>{{ key }}</span>
+                    <strong>{{ count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- حسب المنطقة -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="bi bi-geo-alt"></i> حسب المنطقة</h6>
+            </div>
+            <div class="card-body">
+                {% for name, count in by_region[:10] %}
+                <div class="d-flex justify-content-between mb-2">
+                    <span>{{ name }}</span>
+                    <strong>{{ count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- حسب السائق -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-warning">
+                <h6 class="mb-0"><i class="bi bi-person-badge"></i> أفضل السائقين</h6>
+            </div>
+            <div class="card-body">
+                {% for name, count in by_driver[:10] %}
+                <div class="d-flex justify-content-between mb-2">
+                    <span><small>{{ name[:40] }}</small></span>
+                    <strong>{{ count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

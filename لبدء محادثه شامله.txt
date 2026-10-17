@@ -1,0 +1,90 @@
+# 🚀 الملف الهندسي الشامل (Technical Handover) - نظام إدارة العقود والمهام
+# المسار: C:\Users\Abdulrahman.khaled\Desktop\1\
+
+## ⚠️ تعليمات إجبارية للمساعد في المحادثة الجديدة (اقرأها أولاً)
+مرحباً، أنا أستكمل مشروعاً برمجياً ضخماً. **لا تبدأ من الصفر**. هذا المشروع يعمل بنسبة 95%، ونحن في مرحلة التحسينات والإضافات. 
+**القواعد الصارمة:**
+1. **اللغة:** عربي فقط.
+2. **بيئة العمل:** لا تعطني أوامر python إلا بعد تذكيري بتفعيل `.venv\Scripts\activate`.
+3. **الكود:** عند إعطائي كوداً، أعطني الملف **كاملاً** من أول سطر لآخر سطر. لا تعطني أجزاء (snippets) لأن ذلك يسبب أخطاء `IndentationError`.
+4. **التعليقات:** **يُمنع منعاً باتاً** استخدام حروف (═) أو (─) في التعليقات، استخدم (===) أو (---) فقط، لأن الحروف الخاصة تسبب `SyntaxError` في Python.
+5. **تنسيق Jinja2:** لا تستخدم `'%+,.0f'|format()` أبداً، استخدم دائماً `"{:+,.0f}".format()` لتجنب أخطاء `ValueError`.
+
+---
+
+## 🏗️ 1. هيكل المشروع (Architecture)
+- **Backend:** Flask + SQLAlchemy + SQLite.
+- **Frontend:** Bootstrap 5 RTL + Chart.js + Vanilla JS.
+- **الهيكل:**
+  - `app/core/`: (constants.py، workflow.py، permissions.py، helpers.py، ocr.py، invoice_ocr.py).
+  - `app/modules/`: (auth، users، dashboard، suppliers، equipment، requests، contracts، missions، invoices، reports، notifications).
+  - `app/templates/`: مقسمة حسب الـ modules.
+  - `migrate_db.py`: سكربت لتحديث الجداول (يُشغل بعد أي تعديل في models).
+  - `init_db.py`: لتهيئة الجداول وإضافة الأدوار والمدير.
+
+---
+
+## 🗄️ 2. قاعدة البيانات والجداول (15 جدولاً)
+- `User`, `Role`: لإدارة المستخدمين (6 أدوار: admin, manager, transport_manager, transport_user, finance, auditor).
+- `Supplier`: 30+ حقل (رخصة، TRN، توقيع، ملفات).
+- `EquipmentType`: أنواع الآليات (18 نوعاً افتراضياً).
+- `EquipmentPrice`: سعر كل معدة لكل مورد.
+- `Contract` + `ContractEquipment`: العقود، وترتبط بجدول المعدات (النوع، العدد، السعر).
+- `Mission`: 50+ حقل (مهم جداً)، يحتوي على `job_order_id` (من الإكسل) و `mission_number` (رقم مميز MIS-2026-XXXX).
+- `Invoice`: فواتير موردين وعملاء، ترتبط إلزامياً بـ `mission_id`.
+- `WorkflowLog`, `NotificationQueue`, `AuditLog`: للسجلات والإشعارات.
+
+---
+
+## 🧠 3. الدوال والمحاذير الفنية الهامة (Core Logic)
+
+### أ. في `app/core/helpers.py`:
+- دالة `save_supplier_file` و `save_upload`: تم تحصينها بـ `if isinstance(file_storage, str): return None` لمنع خطأ `'str' object has no attribute 'filename'`.
+
+### ب. في `app/core/invoice_ocr.py`:
+- محرك قراءة الفواتير. 
+- **تم حل مشكلة Tesseract:** تم ضبط المسار `pytesseract.pytesseract.tesseract_cmd = r"C:\Users\Abdulrahman.khaled\AppData\Local\Tesseract-OCR\tesseract.exe"`.
+- يستخدم `PyMuPDF` لتحويل PDF الممسوح إلى صور، ثم `pytesseract` لقراءتها.
+- يستخرج (رقم الفاتورة، التاريخ، الإجمالي، المورد).
+
+### ج. في `app/modules/missions/routes.py`:
+- `_detect_equipment_key(text)`: يقرأ الـ `Actual Rec Type` ويحوله لمفتاح المعدة (مثل `flatbed_6_double`).
+- `_get_equipment_cost()`: يجلب سعر المورد من `EquipmentPrice`.
+- `upload_excel()`: 
+  - يقرأ ملف `Project Jobs List`.
+  - رقم المهمة (Mission Number) يُولد تلقائياً بصيغة `MIS-2026-XXXX`.
+  - رقم الـ Job يُحفظ في حقل `job_order_id`.
+  - الإيراد (Revenue) يأتي من عمود `Amount`.
+  - التكلفة (Cost) تأتي من `_get_equipment_cost`.
+- **إعادة حساب التكاليف:** زر يقوم بتحديث `cost` لكل المهام بناءً على أسعار المعدات.
+
+### د. في `app/modules/invoices/routes.py`:
+- **المهمة إلزامية:** لا يمكن حفظ فاتورة بدون `mission_id`.
+- **عرض الـ Job Order:** في القائمة المنسدلة للفواتير، نعرض `Job Order` وليس `MIS-XXXX`.
+- **تنبيه التكرار:** يفحص النظام إذا كان هناك فاتورتان مرتبطتان بنفس `mission_id`، ويظهر تنبيهاً أصفر في الأعلى، ويلوّن الفواتير المكررة.
+- **المسح الضوئي:** API يستقبل الملف ويعيد البيانات لملء الفورم عبر JavaScript.
+
+---
+
+## 🖨️ 4. طباعة العقود (`contracts/print.html`)
+- طباعة A4 احترافية (21 مادة).
+- **أنواع الآليات:** تُطبع كنصوص (بطاقات) وليس جدولاً، بحيث يكون الإنجليزي تحت العربي.
+- **الملاحظات:** صندوق أنيق (خلفية كريمية وحد برتقالي) مع `page-break-inside: avoid` حتى لا ينفصل عن التوقيعات.
+- **التوقيعات:** شبكة 2×1 (Grid) لضمان بقائها بجانب بعضها.
+
+---
+
+## 🎯 5. نقطة التوقف الحالية (أين نحن الآن؟)
+آخر ما كنا نناقشه: **تسعير مهام الحجز بالشبك (Impound Pricing)**.
+- قمت أنا (المستخدم) بإلغاء التعديل الأخير مؤقتاً لأننا أردنا مناقشته.
+- النظام الآن مستقر، ورفع الـ Excel يفصل بين `Mission Number` و `Job Order` بنجاح.
+- شاشة الفواتير تطلب المهمة إلزامياً وتدعم المسح الضوئي وتنبيه التكرار.
+
+## 🗣️ 6. الموضوع المطلوب مناقشته الآن:
+**كيف نطبق تسعير مهام الحجز بالشبك؟**
+أريد منك أن تسألني الأسئلة التالية لنسير بالاتجاه الصحيح:
+1. هل السعر سيُؤخذ من `ContractEquipment` (سعر المعدة داخل العقد) أم من `EquipmentPrice` (سعر المورد)؟
+2. هل نطبقه تلقائياً عند اختيار "المهمة حجز بالشبك"؟ أم نضع زراً لتحديث أسعار كل مهام الحجز؟
+3. كيف نحدد العقد المناسب تلقائياً (حسب الجهة/المنطقة)؟
+
+**أنا جاهز، اقرأ هذا الملف جيداً وأجبني على النقطة 6 لنبدأ العمل!**

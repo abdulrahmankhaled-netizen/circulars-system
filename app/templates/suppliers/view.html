@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% block title %}{{ supplier.display_name }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-building text-primary"></i> {{ supplier.display_name }}
+        </h3>
+        {% if supplier.company_name_en %}
+            <small class="text-muted">{{ supplier.company_name_en }}</small>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if has_permission('suppliers.edit') %}
+        <a href="{{ url_for('suppliers.edit_supplier', sid=supplier.id) }}"
+           class="btn btn-warning">
+            <i class="bi bi-pencil"></i> تعديل
+        </a>
+        {% endif %}
+        <a href="{{ url_for('suppliers.list_suppliers') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- ============ العمود الأيسر ============ -->
+    <div class="col-lg-8">
+
+        <!-- بيانات الشركة -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> بيانات الشركة</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">اسم الشركة (عربي)</small>
+                        <strong>{{ supplier.company_name_ar }}</strong>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">اسم الشركة (إنجليزي)</small>
+                        <span>{{ supplier.company_name_en or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">رقم الرخصة التجارية</small>
+                        <code>{{ supplier.trade_license_no }}</code>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">تاريخ انتهاء الرخصة</small>
+                        {% if supplier.trade_license_expiry %}
+                            {{ supplier.trade_license_expiry.strftime('%Y-%m-%d') }}
+                            {% set lic_status = supplier.license_status() %}
+                            {% if lic_status == 'expired' %}
+                                <span class="badge bg-danger">منتهية</span>
+                            {% elif lic_status == 'soon' %}
+                                <span class="badge bg-warning text-dark">
+                                    {{ supplier.license_days_left() }} يوم
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success">سارية</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">تصريح النقل البري</small>
+                        <span>{{ supplier.transport_permit_no or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الحالة</small>
+                        {% if supplier.status == 'active' %}
+                            <span class="badge bg-success">نشط</span>
+                        {% elif supplier.status == 'suspended' %}
+                            <span class="badge bg-warning text-dark">موقوف</span>
+                        {% else %}
+                            <span class="badge bg-danger">محظور</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- التواصل -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-telephone text-primary"></i> بيانات التواصل</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الشخص المسؤول</small>
+                        <span>{{ supplier.contact_person or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">الهاتف</small>
+                        {% if supplier.phone %}
+                            <a href="tel:{{ supplier.phone }}" dir="ltr">{{ supplier.phone }}</a>
+                        {% else %}—{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">البريد</small>
+                        {% if supplier.email %}
+                            <a href="mailto:{{ supplier.email }}" dir="ltr">{{ supplier.email }}</a>
+                        {% else %}—{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">العنوان</small>
+                        <span>{{ supplier.address or '—' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- البنك والضريبة -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-bank text-primary"></i> البنك والضريبة</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">اسم البنك</small>
+                        <span>{{ supplier.bank_name or '—' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">IBAN</small>
+                        {% if supplier.iban %}
+                            <code dir="ltr">{{ supplier.iban }}</code>
+                        {% else %}—{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">مسجل VAT</small>
+                        {% if supplier.vat_registered %}
+                            <span class="badge bg-success">نعم</span>
+                        {% else %}
+                            <span class="badge bg-secondary">لا</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">TRN</small>
+                        <span>{{ supplier.trn or '—' }}</span>
+                    </div>
+                    {% if supplier.vat_registered and supplier.tax_certificate_expiry %}
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">انتهاء الشهادة الضريبية</small>
+                        {{ supplier.tax_certificate_expiry.strftime('%Y-%m-%d') }}
+                        {% set t_status = supplier.tax_status() %}
+                        {% if t_status == 'expired' %}
+                            <span class="badge bg-danger">منتهية</span>
+                        {% elif t_status == 'soon' %}
+                            <span class="badge bg-warning text-dark">قريبة</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if supplier.notes %}
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-journal-text text-primary"></i> ملاحظات</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-0" style="white-space: pre-line;">{{ supplier.notes }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- ============ العمود الأيمن ============ -->
+    <div class="col-lg-4">
+
+        <!-- الرخصة التجارية -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-file-earmark-pdf text-danger"></i> الرخصة التجارية</h6>
+            </div>
+            <div class="card-body text-center">
+                {% if supplier.trade_license_file %}
+                    <div class="alert alert-success py-2 mb-2 small">
+                        ✅ مؤرشفة
+                        {% if supplier.trade_license_uploaded_at %}
+                            <br><small>{{ supplier.trade_license_uploaded_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('static', filename='uploads/' + supplier.trade_license_file) }}"
+                           target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i> عرض
+                        </a>
+                        <a href="{{ url_for('static', filename='uploads/' + supplier.trade_license_file) }}"
+                           download class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-download"></i> تحميل
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning py-2 mb-0 small">
+                        ⏳ لم تُرفع بعد
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- الشهادة الضريبية -->
+        {% if supplier.vat_registered %}
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-receipt-cutoff text-warning"></i> الشهادة الضريبية</h6>
+            </div>
+            <div class="card-body text-center">
+                {% if supplier.tax_certificate_file %}
+                    <div class="alert alert-success py-2 mb-2 small">✅ مؤرشفة</div>
+                    <a href="{{ url_for('static', filename='uploads/' + supplier.tax_certificate_file) }}"
+                       target="_blank" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-file-earmark-pdf"></i> عرض
+                    </a>
+                {% else %}
+                    <div class="alert alert-warning py-2 mb-0 small">
+                        ⏳ لم تُرفع بعد
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- التوقيع المعتمد -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-vector-pen text-primary"></i> التوقيع المعتمد</h6>
+            </div>
+            <div class="card-body text-center">
+
+                {% if supplier.signature_file %}
+                    <div class="border rounded p-2 mb-2 bg-light">
+                        <img src="{{ url_for('static', filename='uploads/' + supplier.signature_file) }}"
+                             alt="التوقيع"
+                             style="max-height: 90px; max-width: 100%;">
+                    </div>
+
+                    {% if supplier.authorized_signatory_name %}
+                        <p class="mb-1 small">
+                            <strong>{{ supplier.authorized_signatory_name }}</strong>
+                        </p>
+                    {% endif %}
+                    {% if supplier.authorized_signatory_title %}
+                        <p class="text-muted small mb-2">
+                            {{ supplier.authorized_signatory_title }}
+                        </p>
+                    {% endif %}
+
+                    {% if supplier.signature_approved %}
+                        <div class="alert alert-success py-2 mb-2 small">
+                            ✅ <strong>معتمد</strong>
+                            {% if supplier.signature_approved_at %}
+                                <br>
+                                <small>
+                                    بواسطة:
+                                    {{ supplier.signature_approved_by.full_name if supplier.signature_approved_by else '—' }}
+                                    <br>
+                                    {{ supplier.signature_approved_at.strftime('%Y-%m-%d %H:%M') }}
+                                </small>
+                            {% endif %}
+                        </div>
+
+                        {% if has_permission('suppliers.approve') %}
+                        <form method="POST"
+                              action="{{ url_for('suppliers.revoke_signature', sid=supplier.id) }}"
+                              onsubmit="return confirm('إلغاء اعتماد التوقيع؟');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm w-100">
+                                <i class="bi bi-x-circle"></i> إلغاء الاعتماد
+                            </button>
+                        </form>
+                        {% endif %}
+
+                    {% else %}
+                        <div class="alert alert-warning py-2 mb-2 small">
+                            ⏳ <strong>بانتظار الاعتماد</strong>
+                        </div>
+
+                        {% if has_permission('suppliers.approve') %}
+                        <form method="POST"
+                              action="{{ url_for('suppliers.approve_signature', sid=supplier.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-success btn-sm w-100">
+                                <i class="bi bi-check2-circle"></i> اعتماد التوقيع
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% endif %}
+
+                {% else %}
+                    <div class="alert alert-warning py-2 mb-0 small">
+                        ⏳ لم يُرفع توقيع بعد
+                    </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <!-- إجراءات سريعة -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-lightning text-warning"></i> إجراءات</h6>
+            </div>
+            <div class="card-body d-grid gap-2">
+                {% if has_permission('suppliers.edit') %}
+                <a href="{{ url_for('suppliers.edit_supplier', sid=supplier.id) }}"
+                   class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-pencil"></i> تعديل البيانات
+                </a>
+                {% endif %}
+                {% if has_permission('suppliers.delete') %}
+                <form method="POST"
+                      action="{{ url_for('suppliers.delete_supplier', sid=supplier.id) }}"
+                      onsubmit="return confirm('⚠️ حذف المورد {{ supplier.display_name }}؟\n\nلا يمكن التراجع!');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm w-100">
+                        <i class="bi bi-trash"></i> حذف المورد
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

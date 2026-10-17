@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}أنواع الآليات{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-list-ul text-primary"></i> أنواع الآليات
+        <span class="badge bg-secondary">{{ types|length }}</span>
+    </h3>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if has_permission('equipment.create') %}
+        <a href="{{ url_for('equipment.add_type') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> نوع جديد
+        </a>
+        {% endif %}
+        <a href="{{ url_for('equipment.list_prices') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-tags"></i> أسعار المعدات
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    هذه الأنواع تظهر في:
+    <strong>إضافة مهمة</strong> +
+    <strong>أسعار المعدات</strong> +
+    <strong>رفع Excel</strong>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-center" style="width: 60px;">#</th>
+                    <th class="text-center">الترتيب</th>
+                    <th>الاسم العربي</th>
+                    <th>الاسم الإنجليزي</th>
+                    <th>المفتاح</th>
+                    <th class="text-center">الحالة</th>
+                    <th class="text-center" style="width: 140px;">إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in types %}
+                <tr>
+                    <td class="text-center">{{ t.id }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary">{{ t.sort_order }}</span>
+                    </td>
+                    <td><strong>{{ t.name_ar }}</strong></td>
+                    <td dir="ltr">
+                        <small>{{ t.name_en or '—' }}</small>
+                    </td>
+                    <td>
+                        <code>{{ t.key }}</code>
+                    </td>
+                    <td class="text-center">
+                        {% if t.is_active %}
+                            <span class="badge bg-success">مفعّل</span>
+                        {% else %}
+                            <span class="badge bg-secondary">معطّل</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center" style="white-space: nowrap;">
+                        {% if has_permission('equipment.edit') %}
+                        <a href="{{ url_for('equipment.edit_type', tid=t.id) }}"
+                           class="btn btn-sm btn-warning btn-icon-only" title="تعديل">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                        {% if has_permission('equipment.delete') %}
+                        <form method="POST"
+                              action="{{ url_for('equipment.delete_type', tid=t.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('حذف نوع {{ t.name_ar }}؟');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-danger btn-icon-only" title="حذف">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-5">
+                        <i class="bi bi-list-ul fs-2 d-block mb-2"></i>
+                        لا توجد أنواع — أضف الأول الآن
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

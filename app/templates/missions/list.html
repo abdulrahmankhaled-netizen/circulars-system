@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+{% block title %}المهام{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-truck text-primary"></i> المهام
+        <span class="badge bg-secondary">{{ missions|length }}</span>
+    </h3>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if current_user.is_admin and has_permission('missions.delete') %}
+        <button type="button" id="bulkDeleteBtn"
+                class="btn btn-outline-danger"
+                onclick="bulkDelete()">
+            <i class="bi bi-trash"></i> حذف المحدد
+            <span class="badge bg-danger ms-1" id="selectedCount">0</span>
+        </button>
+        {% endif %}
+        {% if current_user.is_admin %}
+        <form method="POST" action="{{ url_for('missions.recalculate_costs') }}"
+              class="d-inline"
+              onsubmit="return confirm('إعادة حساب تكاليف كل المهام؟');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-warning">
+                <i class="bi bi-arrow-clockwise"></i> إعادة حساب التكاليف
+            </button>
+        </form>
+        {% endif %}
+        {% if has_permission('missions.create') %}
+        <a href="{{ url_for('missions.download_template') }}" class="btn btn-outline-success">
+            <i class="bi bi-download"></i> تحميل التمبليت
+        </a>
+        <a href="{{ url_for('missions.upload_excel') }}" class="btn btn-success">
+            <i class="bi bi-cloud-upload"></i> رفع Excel
+        </a>
+        <a href="{{ url_for('missions.add_mission') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> مهمة جديدة
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-primary border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي المهام</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.total }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-info border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">قيد التنفيذ</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.in_progress }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-success border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">مكتملة / تم التحقق</div>
+                <h3 class="mb-0 text-white fw-bold">
+                    {{ stats.completed + stats.verified }}
+                </h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-warning border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي الإيرادات</div>
+                <h3 class="mb-0 text-white fw-bold">
+                    {{ "{:,.0f}".format(stats.total_revenue) }}
+                </h3>
+                <small class="text-white-50">AED</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- المالية -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card border-warning border-2 shadow-sm">
+            <div class="card-body d-flex justify-content-between">
+                <div><strong>التكاليف</strong></div>
+                <h4 class="mb-0 text-warning">{{ "{:,.2f}".format(stats.total_cost) }} AED</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-success border-2 shadow-sm">
+            <div class="card-body d-flex justify-content-between">
+                <div><strong>الربح</strong></div>
+                <h4 class="mb-0 {{ 'text-success' if stats.total_profit >= 0 else 'text-danger' }}">
+                    {{ "{:,.2f}".format(stats.total_profit) }} AED
+                </h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ الفلترة المترابطة ═══════════ -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-bold">بحث عام</label>
+                <input type="text" name="q" value="{{ q }}" class="form-control"
+                       placeholder="رقم المهمة، Job ID، اللوحة، العميل...">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">تصفية حسب</label>
+                <select name="filter_field" id="filterField" class="form-select">
+                    <option value="">— بدون فلتر —</option>
+                    <option value="equipment" {{ 'selected' if filter_field == 'equipment' }}>المعدات</option>
+                    <option value="status" {{ 'selected' if filter_field == 'status' }}>حالة المهمة</option>
+                    <option value="contract" {{ 'selected' if filter_field == 'contract' }}>العقد</option>
+                    <option value="region" {{ 'selected' if filter_field == 'region' }}>المنطقة</option>
+                    <option value="payment" {{ 'selected' if filter_field == 'payment' }}>حالة الدفع</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">القيمة</label>
+                <select name="filter_value" id="filterValue" class="form-select" {{ 'disabled' if not filter_field }}>
+                    <option value="">— اختر —</option>
+                    {% if filter_field and filter_options[filter_field] %}
+                        {% for opt in filter_options[filter_field] %}
+                            <option value="{{ opt.val }}" {{ 'selected' if filter_value == opt.val|string }}>{{ opt.text }}</option>
+                        {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-primary flex-fill"><i class="bi bi-funnel"></i> تصفية</button>
+                <a href="{{ url_for('missions.list_missions') }}" class="btn btn-outline-secondary" title="مسح الكل">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- الجدول -->
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+            <thead class="table-dark">
+                <tr>
+                    {% if current_user.is_admin and has_permission('missions.delete') %}
+                    <th class="text-center" style="width: 35px;">
+                        <input type="checkbox" id="checkAllHeader" style="cursor: pointer;">
+                    </th>
+                    {% endif %}
+                    <th class="text-center sortable" data-sort="id" data-type="number" style="width: 45px; cursor:pointer;"># <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="sortable" data-sort="mission_number" data-type="string" style="cursor:pointer;">رقم المهمة <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-center sortable" data-sort="job_order" data-type="string" style="cursor:pointer;">Job Order <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-center sortable" data-sort="store" data-type="string" style="cursor:pointer;">رقم التخزين <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="sortable" data-sort="equipment" data-type="string" style="cursor:pointer;">المعدة <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-center sortable" data-sort="plate" data-type="string" style="cursor:pointer;">اللوحة <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-center sortable" data-sort="date" data-type="date" style="cursor:pointer;">التاريخ <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-center">QrCode</th>
+                    <th class="text-end sortable" data-sort="cost" data-type="number" style="cursor:pointer;">التكلفة <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-end sortable" data-sort="revenue" data-type="number" style="cursor:pointer;">الإيراد <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-end sortable" data-sort="profit" data-type="number" style="cursor:pointer;">الربح <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-center sortable" data-sort="payment" data-type="string" style="cursor:pointer;">حالة الدفع <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-center sortable" data-sort="status" data-type="string" style="cursor:pointer;">الحالة <i class="bi bi-arrow-down-up small text-muted"></i></th>
+                    <th class="text-center" style="width: 140px;">إجراءات</th>
+                </tr>
+            </thead>
+            <tbody id="missionsTableBody">
+                {% for m in missions %}
+                <tr class="mission-row"
+                    data-id="{{ m.id }}"
+                    data-mission_number="{{ m.mission_number }}"
+                    data-job_order="{{ m.job_order_id or m.job_id_external or '' }}"
+                    data-store="{{ m.store_number or '' }}"
+                    data-equipment="{{ m.equipment_name_ar() }}"
+                    data-plate="{{ m.vehicle_plate or '' }}"
+                    data-date="{{ m.mission_date.strftime('%Y-%m-%d') if m.mission_date else '' }}"
+                    data-cost="{{ m.cost or 0 }}"
+                    data-revenue="{{ m.revenue or 0 }}"
+                    data-profit="{{ m.profit or 0 }}"
+                    data-payment="{{ m.supplier_payment_label() }}"
+                    data-status="{{ m.status }}">
+                    
+                    {% if current_user.is_admin and has_permission('missions.delete') %}
+                    <td class="text-center">
+                        <input type="checkbox" class="mission-checkbox" value="{{ m.id }}" style="cursor: pointer;">
+                    </td>
+                    {% endif %}
+                    
+                    <td class="text-center">{{ m.id }}</td>
+                    <td>
+                        <a href="{{ url_for('missions.view_mission', mid=m.id) }}" class="text-decoration-none">
+                            <code class="text-primary fw-bold" style="font-size: 0.78rem;">{{ m.mission_number }}</code>
+                        </a>
+                    </td>
+                    <td class="text-center">
+                        {% if m.job_order_id or m.job_id_external %}
+                            <span class="badge bg-info text-dark">{{ m.job_order_id or m.job_id_external }}</span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if m.store_number %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-shop"></i> {{ m.store_number }}</span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td><small><strong>{{ m.equipment_name_ar() }}</strong></small></td>
+                    <td class="text-center">
+                        {% if m.vehicle_plate %}
+                            <span class="badge bg-primary" style="font-size: 0.7rem;">{{ m.vehicle_plate[:18] }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="text-center">
+                        <small>{{ m.mission_date.strftime('%Y-%m-%d') if m.mission_date else '—' }}</small>
+                    </td>
+                                        <td class="text-center">
+                        {% if m.qr_code %}
+                            <span class="badge bg-dark" style="font-size: 0.8rem; letter-spacing: 1px;" dir="ltr">
+                                {{ m.qr_code }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end text-warning fw-bold">{{ "{:,.0f}".format(m.cost or 0) }}</td>
+                    <td class="text-end text-primary fw-bold">{{ "{:,.0f}".format(m.revenue or 0) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if (m.profit or 0) >= 0 else 'text-danger' }}">
+                        {{ "{:+,.0f}".format(m.profit or 0) }}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ m.supplier_payment_color() }}" style="font-size: 0.7rem;">
+                            {{ m.supplier_payment_label() }}
+                        </span>
+                    </td>
+                    <td class="text-center">{{ m.status | state_badge('mission') | safe }}</td>
+                    <td class="text-center" style="white-space: nowrap;">
+                        <a href="{{ url_for('missions.view_mission', mid=m.id) }}" class="btn btn-sm btn-info btn-icon-only" title="عرض">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if has_permission('missions.edit') %}
+                        <a href="{{ url_for('missions.edit_mission', mid=m.id) }}" class="btn btn-sm btn-warning btn-icon-only" title="تعديل">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                        {% if current_user.is_admin %}
+                        <form method="POST" action="{{ url_for('missions.delete_mission', mid=m.id) }}"
+                              class="d-inline" onsubmit="return confirm('حذف المهمة {{ m.mission_number }}؟');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-danger btn-icon-only" title="حذف">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="{% if current_user.is_admin %}16{% else %}15{% endif %}" class="text-center text-muted py-5">
+                        <i class="bi bi-truck fs-2 d-block mb-2"></i>
+                        لا توجد مهام — <a href="{{ url_for('missions.upload_excel') }}">ارفع Excel</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- نموذج الحذف الجماعي (مخفي) -->
+{% if current_user.is_admin %}
+<form method="POST" action="{{ url_for('missions.bulk_delete') }}" id="bulkDeleteForm" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div id="bulkDeleteInputs"></div>
+</form>
+{% endif %}
+
+<!-- QR Popup Modal -->
+<div class="modal fade" id="qrModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h6 class="modal-title"><i class="bi bi-qr-code"></i> محتوى QrCode</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="qrLargeCode" style="display: inline-block; padding: 15px; background: #fff;"></div>
+                <div class="mt-3">
+                    <textarea id="qrTextContent" class="form-control" rows="3" readonly style="direction: ltr; text-align: left; font-family: monospace; font-size: 13px;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="copyQrText()">
+                    <i class="bi bi-clipboard"></i> نسخ
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- سكربت QR Code -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ═══════════════════════════════════════════════════════════
+    // 1. توليد QR Codes
+    // ═══════════════════════════════════════════════════════════
+    document.querySelectorAll('.qr-box').forEach(el => {
+        const text = (el.dataset.qr || '').trim();
+        if (!text) return;
+        try {
+            new QRCode(el, {
+                text: text, width: 50, height: 50,
+                colorDark: "#1f4e78", colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.L
+            });
+        } catch (e) {}
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // 2. الفلاتر المترابطة
+    // ═══════════════════════════════════════════════════════════
+    const filterOptions = {{ filter_options | tojson }};
+    const fieldSelect = document.getElementById('filterField');
+    const valueSelect = document.getElementById('filterValue');
+
+    if (fieldSelect && valueSelect) {
+        fieldSelect.addEventListener('change', function() {
+            const selectedField = this.value;
+            valueSelect.innerHTML = '<option value="">— اختر —</option>';
+            
+            if (!selectedField || !filterOptions[selectedField]) {
+                valueSelect.disabled = true;
+                return;
+            }
+            valueSelect.disabled = false;
+            filterOptions[selectedField].forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.val;
+                option.textContent = opt.text;
+                valueSelect.appendChild(option);
+            });
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 3. ترتيب الجدول
+    // ═══════════════════════════════════════════════════════════
+    const tbody = document.getElementById('missionsTableBody');
+    if (tbody) {
+        const ths = document.querySelectorAll('th.sortable');
+        ths.forEach(th => {
+            th.addEventListener('click', function() {
+                const sortKey = this.dataset.sort;
+                const sortType = this.dataset.type || 'string';
+                let currentOrder = this.dataset.currentOrder || 'none';
+                let newOrder = (currentOrder === 'asc') ? 'desc' : 'asc';
+
+                ths.forEach(h => {
+                    h.dataset.currentOrder = 'none';
+                    const icon = h.querySelector('i');
+                    if (icon) icon.className = 'bi bi-arrow-down-up small text-muted';
+                });
+
+                this.dataset.currentOrder = newOrder;
+                const icon = this.querySelector('i');
+                if (icon) {
+                    icon.className = (newOrder === 'asc') ? 'bi bi-sort-down-alt small text-warning' : 'bi bi-sort-down small text-warning';
+                }
+
+                const rows = Array.from(tbody.querySelectorAll('tr.mission-row'));
+                rows.sort((a, b) => {
+                    let valA = a.dataset[sortKey] || '';
+                    let valB = b.dataset[sortKey] || '';
+                    let result = 0;
+                    if (sortType === 'number') {
+                        result = (parseFloat(valA) || 0) - (parseFloat(valB) || 0);
+                    } else if (sortType === 'date') {
+                        result = valA.localeCompare(valB);
+                    } else {
+                        result = String(valA).localeCompare(String(valB), 'ar', { numeric: true });
+                    }
+                    return newOrder === 'asc' ? result : -result;
+                });
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 4. تحديد الكل
+    // ═══════════════════════════════════════════════════════════
+    const checkAllHeader = document.getElementById('checkAllHeader');
+    const checkboxes = document.querySelectorAll('.mission-checkbox');
+    
+    if (checkAllHeader) {
+        checkAllHeader.addEventListener('change', function() {
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateSelectedCount();
+        });
+    }
+    checkboxes.forEach(cb => cb.addEventListener('change', updateSelectedCount));
+});
+
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('.mission-checkbox:checked').length;
+    const el = document.getElementById('selectedCount');
+    if (el) el.textContent = checked;
+
+    const btn = document.getElementById('bulkDeleteBtn');
+    if (btn) {
+        if (checked > 0) {
+            btn.classList.remove('btn-outline-danger');
+            btn.classList.add('btn-danger');
+        } else {
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-outline-danger');
+        }
+    }
+}
+
+// عرض QR في Modal
+function showQrModal(text) {
+    const container = document.getElementById('qrLargeCode');
+    container.innerHTML = '';
+    new QRCode(container, {
+        text: text, width: 200, height: 200,
+        colorDark: "#1f4e78", colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+    });
+    document.getElementById('qrTextContent').value = text;
+    const modal = new bootstrap.Modal(document.getElementById('qrModal'));
+    modal.show();
+}
+
+// ربط نقر QR بالـ modal
+document.querySelectorAll('.qr-box').forEach(el => {
+    el.addEventListener('click', function() {
+        const text = (this.dataset.qr || '').trim();
+        if (text) showQrModal(text);
+    });
+});
+
+function copyQrText() {
+    const ta = document.getElementById('qrTextContent');
+    ta.select();
+    document.execCommand('copy');
+    alert('✅ تم النسخ');
+}
+
+// الحذف الجماعي
+function bulkDelete() {
+    const checked = Array.from(document.querySelectorAll('.mission-checkbox:checked')).map(cb => cb.value);
+    if (checked.length === 0) {
+        alert('⚠️ الرجاء تحديد مهمة واحدة على الأقل');
+        return;
+    }
+    if (!confirm(`حذف ${checked.length} مهمة؟\n\nلا يمكن التراجع!`)) return;
+
+    const form = document.getElementById('bulkDeleteForm');
+    const inputs = document.getElementById('bulkDeleteInputs');
+    inputs.innerHTML = checked.map(id => `<input type="hidden" name="mission_ids" value="${id}">`).join('');
+    form.submit();
+}
+</script>
+
+{% endblock %}

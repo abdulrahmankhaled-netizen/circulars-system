@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        {% if mission %}
+            <i class="bi bi-pencil-square text-warning"></i> {{ title }}
+        {% else %}
+            <i class="bi bi-truck text-success"></i> {{ title }}
+        {% endif %}
+    </h3>
+    <a href="{{ url_for('missions.list_missions') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <form method="POST" novalidate class="card shadow-sm border-0">
+            {{ form.hidden_tag() }}
+
+            <div class="card-body">
+
+                <!-- ============ العقد والمعدة ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3">
+                    <i class="bi bi-file-earmark-text"></i> العقد والمعدة
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.contract_id.label(class="form-label fw-bold") }}
+                        {{ form.contract_id(class="form-select") }}
+                        {% for e in form.contract_id.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.equipment_key.label(class="form-label fw-bold") }}
+                        {{ form.equipment_key(class="form-select") }}
+                    </div>
+                </div>
+
+                <!-- ============ المركبة ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-car-front"></i> بيانات المركبة
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        {{ form.vehicle_plate.label(class="form-label fw-bold") }}
+                        {{ form.vehicle_plate(class="form-control",
+                                               placeholder="مثال: 12345 دبي") }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.vehicle_make.label(class="form-label fw-bold") }}
+                        {{ form.vehicle_make(class="form-control",
+                                              placeholder="Toyota") }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.vehicle_model.label(class="form-label fw-bold") }}
+                        {{ form.vehicle_model(class="form-control",
+                                               placeholder="Corolla") }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.vehicle_vin.label(class="form-label fw-bold") }}
+                        {{ form.vehicle_vin(class="form-control") }}
+                    </div>
+                </div>
+
+                              <!-- ============ التاريخ والوقت ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-calendar-event"></i> تاريخ ووقت المهمة
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.mission_date.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-calendar"></i>
+                            </span>
+                            {{ form.mission_date(class="form-control",
+                                                  type="datetime-local",
+                                                  id="missionDateInput") }}
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            تاريخ ووقت بدء المهمة (يُستخدم في التقارير)
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">اختصارات سريعة</label>
+                        <div class="d-flex gap-1 flex-wrap">
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setMissionDate('now')">
+                                <i class="bi bi-clock"></i> الآن
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setMissionDate('today')">
+                                <i class="bi bi-sun"></i> اليوم
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setMissionDate('yesterday')">
+                                <i class="bi bi-arrow-left"></i> أمس
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="setMissionDate('tomorrow')">
+                                <i class="bi bi-arrow-right"></i> غداً
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============ الموقع والعميل ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-geo-alt"></i> الموقع والعميل
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.customer_name.label(class="form-label fw-bold") }}
+                        {{ form.customer_name(class="form-control") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.customer_phone.label(class="form-label fw-bold") }}
+                        {{ form.customer_phone(class="form-control") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.pickup_location.label(class="form-label fw-bold") }}
+                        {{ form.pickup_location(class="form-control") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.drop_location.label(class="form-label fw-bold") }}
+                        {{ form.drop_location(class="form-control") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.region.label(class="form-label fw-bold") }}
+                        {{ form.region(class="form-control") }}
+                    </div>
+                </div>
+
+                <!-- ============ السائق ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-person-badge"></i> بيانات السائق
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.driver_name.label(class="form-label fw-bold") }}
+                        {{ form.driver_name(class="form-control") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.driver_phone.label(class="form-label fw-bold") }}
+                        {{ form.driver_phone(class="form-control") }}
+                    </div>
+                </div>
+
+                <!-- ============ المالية ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-cash-coin"></i> المالية
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.cost.label(class="form-label fw-bold text-warning") }}
+                        <div class="input-group">
+                            {{ form.cost(class="form-control", step="0.01", min="0") }}
+                            <span class="input-group-text">AED</span>
+                        </div>
+                        <small class="text-muted">ما ندفعه للمورد</small>
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.revenue.label(class="form-label fw-bold text-primary") }}
+                        <div class="input-group">
+                            {{ form.revenue(class="form-control", step="0.01", min="0") }}
+                            <span class="input-group-text">AED</span>
+                        </div>
+                        <small class="text-muted">ما نستلمه من العميل</small>
+                    </div>
+                </div>
+                <!-- ============ رقم التخزين (دائماً ظاهر) ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-shop text-warning"></i> رقم التخزين وأمر العمل
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.store_number.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-shop"></i></span>
+                            {{ form.store_number(class="form-control",
+                                                  placeholder="مثال: STORE-045",
+                                                  id="storeNumberField") }}
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            رقم التخزين في شبك الحجز (يدوي)
+                        </small>
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.job_order_id.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-hash"></i></span>
+                            {{ form.job_order_id(class="form-control",
+                                                  placeholder="مثال: JO-2026-1245") }}
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            رقم أمر العمل من نظام الحجز (يدوي)
+                        </small>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            {{ form.is_impound(class="form-check-input", id="isImpound") }}
+                            <label class="form-check-label fw-bold" for="isImpound">
+                                <i class="bi bi-lock-fill text-warning"></i>
+                                المهمة حجز بالشبك (Impound)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============ الحالة والدفع ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-info-square"></i> الحالة والدفع
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.status.label(class="form-label fw-bold") }}
+                        {{ form.status(class="form-select") }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.supplier_payment_status.label(class="form-label fw-bold") }}
+                        {{ form.supplier_payment_status(class="form-select") }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.customer_invoice_status.label(class="form-label fw-bold") }}
+                        {{ form.customer_invoice_status(class="form-select") }}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.notes.label(class="form-label fw-bold") }}
+                        {{ form.notes(class="form-control", rows=2) }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.completion_notes.label(class="form-label fw-bold") }}
+                        {{ form.completion_notes(class="form-control", rows=2) }}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- الأزرار -->
+            <div class="card-footer bg-light d-flex justify-content-between flex-wrap gap-2">
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="bi bi-check2-circle"></i>
+                    {{ 'حفظ التعديلات' if mission else 'إنشاء المهمة' }}
+                </button>
+                <a href="{{ url_for('missions.list_missions') }}"
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> إلغاء
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+<script>
+// اختصارات سريعة لتاريخ المهمة
+function setMissionDate(mode) {
+    const input = document.getElementById('missionDateInput');
+    if (!input) return;
+
+    const now = new Date();
+    let target = new Date(now);
+
+    if (mode === 'now') {
+        // الآن (بتوقيت محلي)
+    } else if (mode === 'today') {
+        target.setHours(8, 0, 0, 0);  // 8 صباحاً
+    } else if (mode === 'yesterday') {
+        target.setDate(target.getDate() - 1);
+        target.setHours(8, 0, 0, 0);
+    } else if (mode === 'tomorrow') {
+        target.setDate(target.getDate() + 1);
+        target.setHours(8, 0, 0, 0);
+    }
+
+    // تنسيق: YYYY-MM-DDTHH:MM
+    const pad = n => String(n).padStart(2, '0');
+    const formatted = target.getFullYear() + '-' +
+                      pad(target.getMonth() + 1) + '-' +
+                      pad(target.getDate()) + 'T' +
+                      pad(target.getHours()) + ':' +
+                      pad(target.getMinutes());
+
+    input.value = formatted;
+}
+</script>
+
+{% endblock %}

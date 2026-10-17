@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}رفع مهام من Excel{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-cloud-upload text-success"></i> رفع مهام من Excel
+    </h3>
+    <a href="{{ url_for('missions.list_missions') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع
+    </a>
+</div>
+
+<div class="row g-3">
+
+    <!-- ═══════════ العمود الأيسر: النموذج ═══════════ -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-file-earmark-excel"></i> بيانات الرفع</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+
+                    <!-- CSRF Token -->
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-file-earmark-excel text-success"></i>
+                            ملف Excel (.xlsx)
+                        </label>
+                        <input type="file" name="excel_file" class="form-control form-control-lg"
+                               accept=".xlsx,.xlsm,.xls" required>
+                        <small class="text-muted">
+                            مثال: Project Jobs List - Fleet Management
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-danger">
+                            <i class="bi bi-file-earmark-text"></i>
+                            العقد (إلزامي) <span class="text-danger">*</span>
+                        </label>
+                        <select name="default_contract_id" class="form-select form-select-lg" required>
+                            <option value="">— اختر العقد —</option>
+                            {% for c in contracts %}
+                            <option value="{{ c.id }}">
+                                {{ c.contract_number }} — {{ c.supplier.company_name_ar }} [{{ c.status }}]
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">
+                            سيُربط كل المهام المستوردة بهذا العقد.
+                        </small>
+                    </div>
+
+                    <div class="alert alert-info py-2 mb-3 small">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>ملاحظات مهمة:</strong>
+                        <ul class="mb-0 mt-1 ps-3">
+                            <li>إذا كان الملف يحتوي على <code>Job Id</code> موجود مسبقاً → يُحدَّث تلقائياً</li>
+                            <li>المهام الجديدة تُضاف برقم <code>Job Id</code> كرقم مهمة</li>
+                            <li>التكلفة تُجلب تلقائياً من <strong>أسعار المعدات</strong></li>
+                            <li>الإيراد = عمود <code>Amount</code> في الملف</li>
+                        </ul>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-lg w-100">
+                        <i class="bi bi-cloud-upload"></i> بدء الاستيراد
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ العمود الأيمن ═══════════ -->
+    <div class="col-lg-4">
+
+        <!-- 📥 تحميل التمبليت -->
+        <div class="card shadow-sm mb-3 border-success" style="border-width: 2px;">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-download"></i> ابدأ من التمبليت
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <p class="small mb-3">
+                    <i class="bi bi-lightbulb text-warning"></i>
+                    نزّل ملف Excel نموذجي جاهز بكل الأعمدة الصحيحة،
+                    املأه، ثم ارفعه.
+                </p>
+                <a href="{{ url_for('missions.download_template') }}"
+                   class="btn btn-success w-100">
+                    <i class="bi bi-file-earmark-excel"></i> تحميل التمبليت
+                </a>
+                <small class="text-muted d-block mt-2">
+                    ملف بصيغة .xlsx — يفتح في Excel أو Google Sheets
+                </small>
+            </div>
+        </div>
+
+        <!-- 📋 الأعمدة المدعومة -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-warning">
+                <h6 class="mb-0">
+                    <i class="bi bi-list-check"></i> الأعمدة المدعومة
+                </h6>
+            </div>
+            <div class="card-body small">
+                <ul class="mb-0 ps-3">
+                    <li><strong>Job Id</strong> (رقم المهمة) ⭐</li>
+                    <li>VIN</li>
+                    <li>Plate (اللوحة)</li>
+                    <li>Payer Type</li>
+                    <li>Created Date</li>
+                    <li><strong>Started Date</strong> ⭐ (تاريخ المهمة)</li>
+                    <li>Completed Date</li>
+                    <li>Pickup Location</li>
+                    <li>Drop Location</li>
+                    <li>Status</li>
+                    <li>Driver Name</li>
+                    <li>Driver Phone</li>
+                    <li><strong>Amount</strong> ⭐ (إيراد العميل)</li>
+                    <li>QrCode (نص QR)</li>
+                    <li>Rquested Rec Type</li>
+                    <li><strong>Actual Rec Type</strong> ⭐ (يكشف المعدة)</li>
+                    <li>Make / Model</li>
+                    <li>Toll Job Id</li>
+                    <li>Toll Amount</li>
+                    <li>Remarks</li>
+                    <li>Sub Status</li>
+                    <li>Advisor</li>
+                    <li>Service Centre/ Workshop</li>
+                    <li>Store Number</li>
+                    <li>Job Order</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- ✨ الميزات -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-stars"></i> ميزات ذكية</h6>
+            </div>
+            <div class="card-body small">
+                <ul class="mb-0 ps-3">
+                    <li>✅ يقرأ ملف Excel تلقائياً</li>
+                    <li>✅ يحدد صف الرؤوس بنفسه</li>
+                    <li>✅ يكتشف نوع المعدة من "Actual Rec Type"</li>
+                    <li>✅ Amount = إيراد العميل</li>
+                    <li>✅ التكلفة من EquipmentPrice</li>
+                    <li>✅ يحسب الربح تلقائياً</li>
+                    <li>✅ يمنع التكرار (Job Id)</li>
+                    <li>✅ يحدّث المهام الموجودة</li>
+                    <li>✅ يقبل تواريخ متعددة الصيغ</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

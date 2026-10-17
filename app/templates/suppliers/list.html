@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}الموردون{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-building text-primary"></i> الموردون
+        <span class="badge bg-secondary">{{ suppliers|length }}</span>
+    </h3>
+    {% if has_permission('suppliers.create') %}
+    <a href="{{ url_for('suppliers.add_supplier') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> مورد جديد
+    </a>
+    {% endif %}
+</div>
+
+<!-- KPI صغيرة -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-primary border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي الموردين</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.total }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-success border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">نشطون</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.active }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-danger border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">رخص منتهية</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.expired_licenses }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card kpi-warning border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">توقيعات بانتظار الاعتماد</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.pending_signatures }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- الفلترة -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label small fw-bold">بحث</label>
+                <input type="text" name="q" value="{{ q }}" class="form-control"
+                       placeholder="اسم الشركة، رقم الرخصة، شخص التواصل، الهاتف...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">الحالة</label>
+                <select name="status" class="form-select">
+                    <option value="">— الكل —</option>
+                    <option value="active" {{ 'selected' if status_filter == 'active' }}>نشط</option>
+                    <option value="suspended" {{ 'selected' if status_filter == 'suspended' }}>موقوف</option>
+                    <option value="blacklisted" {{ 'selected' if status_filter == 'blacklisted' }}>محظور</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> بحث</button>
+                <a href="{{ url_for('suppliers.list_suppliers') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- الجدول -->
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-center" style="width: 60px;">#</th>
+                    <th>الشركة</th>
+                    <th>الرخصة</th>
+                    <th>الانتهاء</th>
+                    <th class="text-center">الضريبة</th>
+                    <th class="text-center">التوقيع</th>
+                    <th class="text-center">الحالة</th>
+                    <th class="text-center" style="width: 160px;">إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in suppliers %}
+                <tr>
+                    <td class="text-center">{{ s.id }}</td>
+                    <td>
+                        <a href="{{ url_for('suppliers.view_supplier', sid=s.id) }}"
+                           class="text-decoration-none">
+                            <strong>{{ s.company_name_ar }}</strong>
+                            {% if s.company_name_en %}
+                                <br><small class="text-muted">{{ s.company_name_en }}</small>
+                            {% endif %}
+                        </a>
+                        {% if s.trade_license_file %}
+                            <i class="bi bi-paperclip text-success ms-1"
+                               title="رخصة مؤرشفة"></i>
+                        {% endif %}
+                    </td>
+                    <td><code>{{ s.trade_license_no }}</code></td>
+                    <td>
+                        {% if s.trade_license_expiry %}
+                            <small>{{ s.trade_license_expiry.strftime('%Y-%m-%d') }}</small>
+                            {% set lic_status = s.license_status() %}
+                            {% if lic_status == 'expired' %}
+                                <span class="badge bg-danger">منتهية</span>
+                            {% elif lic_status == 'soon' %}
+                                <span class="badge bg-warning text-dark">
+                                    {{ s.license_days_left() }} يوم
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if s.vat_registered %}
+                            <span class="badge bg-success" title="TRN: {{ s.trn or '—' }}">
+                                <i class="bi bi-receipt"></i> VAT
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if s.signature_approved %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check2-circle"></i> معتمد
+                            </span>
+                        {% elif s.signature_file %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-clock"></i> بانتظار
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if s.status == 'active' %}
+                            <span class="badge bg-success">نشط</span>
+                        {% elif s.status == 'suspended' %}
+                            <span class="badge bg-warning text-dark">موقوف</span>
+                        {% else %}
+                            <span class="badge bg-danger">محظور</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center" style="white-space: nowrap;">
+                        <a href="{{ url_for('suppliers.view_supplier', sid=s.id) }}"
+                           class="btn btn-sm btn-info btn-icon-only" title="عرض">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if has_permission('suppliers.edit') %}
+                        <a href="{{ url_for('suppliers.edit_supplier', sid=s.id) }}"
+                           class="btn btn-sm btn-warning btn-icon-only" title="تعديل">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% endif %}
+                        {% if has_permission('suppliers.delete') %}
+                        <form method="POST"
+                              action="{{ url_for('suppliers.delete_supplier', sid=s.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('⚠️ حذف المورد {{ s.company_name_ar }}؟\n\nلا يمكن التراجع عن هذا الإجراء!');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-danger btn-icon-only" title="حذف">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">
+                        <i class="bi bi-building fs-2 d-block mb-2"></i>
+                        {% if q or status_filter %}
+                            لا توجد نتائج مطابقة للبحث
+                            <br><a href="{{ url_for('suppliers.list_suppliers') }}">مسح الفلاتر</a>
+                        {% else %}
+                            لا يوجد موردون بعد
+                            {% if has_permission('suppliers.create') %}
+                                <br><a href="{{ url_for('suppliers.add_supplier') }}">أضف أول مورد</a>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

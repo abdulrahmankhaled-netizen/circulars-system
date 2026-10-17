@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        {% if supplier %}
+            <i class="bi bi-pencil-square text-warning"></i> {{ title }}
+        {% else %}
+            <i class="bi bi-building-add text-success"></i> {{ title }}
+        {% endif %}
+    </h3>
+    <a href="{{ url_for('suppliers.list_suppliers') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع للقائمة
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <form method="POST" enctype="multipart/form-data" novalidate
+              class="card shadow-sm border-0">
+            {{ form.hidden_tag() }}
+
+            <div class="card-body">
+
+                <!-- ============ بيانات الشركة ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3">
+                    <i class="bi bi-building"></i> بيانات الشركة
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.company_name_ar.label(class="form-label fw-bold") }}
+                        {{ form.company_name_ar(class="form-control",
+                                                 placeholder="مثال: شركة الأمانة للنقليات") }}
+                        {% for e in form.company_name_ar.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.company_name_en.label(class="form-label fw-bold") }}
+                        {{ form.company_name_en(class="form-control",
+                                                 placeholder="Al Amana Transport LLC",
+                                                 dir="ltr") }}
+                    </div>
+
+                    <div class="col-md-4">
+                        {{ form.trade_license_no.label(class="form-label fw-bold") }}
+                        {{ form.trade_license_no(class="form-control",
+                                                  placeholder="1234567") }}
+                        {% for e in form.trade_license_no.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-4">
+                        {{ form.trade_license_expiry.label(class="form-label fw-bold") }}
+                        {{ form.trade_license_expiry(class="form-control", type="date") }}
+                    </div>
+
+                    <div class="col-md-4">
+                        {{ form.transport_permit_no.label(class="form-label fw-bold") }}
+                        {{ form.transport_permit_no(class="form-control") }}
+                    </div>
+
+                    <div class="col-12">
+                        {{ form.trade_license_file.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            {{ form.trade_license_file(class="form-control",
+                                                        accept=".pdf,.png,.jpg,.jpeg",
+                                                        id="licenseFileInput") }}
+                            <button type="button"
+                                    class="btn btn-outline-primary"
+                                    id="extractBtn"
+                                    title="استخرج البيانات من الرخصة">
+                                <i class="bi bi-magic"></i> استخرج
+                            </button>
+                        </div>
+                        <div id="extractStatus" class="small mt-1"></div>
+                        {% if supplier and supplier.trade_license_file %}
+                            <small class="text-success d-block mt-1">
+                                <i class="bi bi-check-circle"></i>
+                                نسخة محفوظة —
+                                <a href="{{ url_for('static', filename='uploads/' + supplier.trade_license_file) }}"
+                                   target="_blank">عرض</a>
+                            </small>
+                        {% else %}
+                            <small class="text-muted">
+                                PDF, PNG, JPG —
+                                <i class="bi bi-magic"></i> ارفع الملف ثم اضغط "استخرج"
+                            </small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ============ التواصل ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-telephone"></i> بيانات التواصل
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.contact_person.label(class="form-label fw-bold") }}
+                        {{ form.contact_person(class="form-control") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.phone.label(class="form-label fw-bold") }}
+                        {{ form.phone(class="form-control", placeholder="+971 50 1234567") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.email.label(class="form-label fw-bold") }}
+                        {{ form.email(class="form-control", placeholder="info@example.com") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.address.label(class="form-label fw-bold") }}
+                        {{ form.address(class="form-control") }}
+                    </div>
+                </div>
+
+                <!-- ============ البنك ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-bank"></i> بيانات البنك
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.bank_name.label(class="form-label fw-bold") }}
+                        {{ form.bank_name(class="form-control") }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.iban.label(class="form-label fw-bold") }}
+                        {{ form.iban(class="form-control", placeholder="AE07 0331 2345 6789 0123 456") }}
+                    </div>
+                </div>
+
+                <!-- ============ الضريبة ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-receipt-cutoff"></i> البيانات الضريبية
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            {{ form.vat_registered(class="form-check-input", id="vatSwitch") }}
+                            {{ form.vat_registered.label(class="form-check-label fw-bold", for="vatSwitch") }}
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        {{ form.trn.label(class="form-label fw-bold") }}
+                        {{ form.trn(class="form-control", placeholder="100123456700003", maxlength="15") }}
+                        <small class="text-muted">15 رقماً</small>
+                    </div>
+
+                    <div class="col-md-4">
+                        {{ form.tax_certificate_expiry.label(class="form-label fw-bold") }}
+                        {{ form.tax_certificate_expiry(class="form-control", type="date") }}
+                    </div>
+
+                    <div class="col-md-4">
+                        {{ form.tax_certificate_file.label(class="form-label fw-bold") }}
+                        {{ form.tax_certificate_file(class="form-control",
+                                                      accept=".pdf,.png,.jpg,.jpeg") }}
+                    </div>
+                </div>
+
+                <!-- ============ التوقيع المعتمد ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-vector-pen"></i> التوقيع المعتمد
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.authorized_signatory_name.label(class="form-label fw-bold") }}
+                        {{ form.authorized_signatory_name(class="form-control") }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.authorized_signatory_title.label(class="form-label fw-bold") }}
+                        {{ form.authorized_signatory_title(class="form-control") }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.signature_file.label(class="form-label fw-bold") }}
+                        {{ form.signature_file(class="form-control",
+                                                accept=".png,.jpg,.jpeg") }}
+                        <small class="text-muted">PNG/JPG بخلفية بيضاء</small>
+                    </div>
+                </div>
+
+                <!-- ============ الحالة والملاحظات ============ -->
+                <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
+                    <i class="bi bi-info-circle"></i> الحالة والملاحظات
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.status.label(class="form-label fw-bold") }}
+                        {{ form.status(class="form-select") }}
+                    </div>
+                    <div class="col-md-8">
+                        {{ form.notes.label(class="form-label fw-bold") }}
+                        {{ form.notes(class="form-control", rows=2) }}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- الأزرار -->
+            <div class="card-footer bg-light d-flex justify-content-between flex-wrap gap-2">
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="bi bi-check2-circle"></i>
+                    {{ 'حفظ التعديلات' if supplier else 'إضافة المورد' }}
+                </button>
+                <a href="{{ url_for('suppliers.list_suppliers') }}"
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> إلغاء
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    const btn = document.getElementById('extractBtn');
+    const input = document.getElementById('licenseFileInput');
+    const statusEl = document.getElementById('extractStatus');
+
+    if (!btn || !input) {
+        console.warn('[OCR] الزر أو الحقل غير موجود');
+        return;
+    }
+
+    console.log('[OCR] جاهز');
+
+    function showStatus(msg, type) {
+        statusEl.innerHTML = msg;
+        statusEl.className = 'small mt-1 text-' + type;
+    }
+
+    btn.addEventListener('click', async function() {
+        if (!input.files || !input.files[0]) {
+            showStatus('⚠️ الرجاء اختيار ملف الرخصة أولاً', 'warning');
+            return;
+        }
+
+        const file = input.files[0];
+        console.log('[OCR] بدء الاستخراج:', file.name);
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> جاري...';
+        showStatus('🔄 جاري قراءة الرخصة...', 'info');
+
+        const formData = new FormData();
+        formData.append('license_file', file);
+
+        const csrfToken = document.querySelector('input[name="csrf_token"]');
+        if (csrfToken) {
+            formData.append('csrf_token', csrfToken.value);
+        }
+
+        try {
+            const resp = await fetch('{{ url_for("suppliers.extract_license") }}', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await resp.json();
+            console.log('[OCR] استجابة:', data);
+
+            if (data.error) {
+                showStatus('❌ ' + data.error, 'danger');
+                return;
+            }
+
+            let filled = 0;
+            const fieldMap = {
+                company_name_ar: 'company_name_ar',
+                company_name_en: 'company_name_en',
+                trade_license_no: 'trade_license_no',
+                trade_license_expiry: 'trade_license_expiry',
+                trn: 'trn',
+                phone: 'phone',
+                email: 'email',
+            };
+
+            for (const [key, fieldName] of Object.entries(fieldMap)) {
+                if (data[key]) {
+                    const el = document.querySelector(
+                        `input[name="${fieldName}"], textarea[name="${fieldName}"]`
+                    );
+                    if (el && (!el.value || el.value.trim() === '')) {
+                        el.value = data[key];
+                        filled++;
+                        el.style.transition = 'background 0.3s';
+                        el.style.background = '#d1fae5';
+                        setTimeout(() => { el.style.background = ''; }, 2000);
+                    }
+                }
+            }
+
+            if (data.raw_text) {
+                console.log('=== Raw Text ===');
+                console.log(data.raw_text);
+            }
+
+            if (filled > 0) {
+                showStatus(`✅ تم استخراج ${filled} حقل (${data.method}) — راجع القيم`, 'success');
+            } else {
+                showStatus('⚠️ لم يتعرف النظام — راجع F12 → Console', 'warning');
+            }
+
+        } catch (err) {
+            console.error('[OCR] فشل:', err);
+            showStatus('❌ فشل الاتصال: ' + err.message, 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-magic"></i> استخرج';
+        }
+    });
+})();
+</script>
+
+{% endblock %}

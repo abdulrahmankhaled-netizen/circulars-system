@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+{% block title %}مقارنة - {{ contract.contract_number }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-bar-chart-line text-primary"></i>
+            مقارنة الفترات — {{ contract.contract_number }}
+        </h3>
+        <small class="text-muted">
+            {{ contract.supplier.company_name_ar }}
+            {% if contract.client_entity %}— {{ contract.client_entity }}{% endif %}
+            {% if contract.region %}— {{ contract.region }}{% endif %}
+        </small>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('contracts.compare_all_contracts') }}" class="btn btn-outline-primary">
+            <i class="bi bi-files"></i> مقارنة كل العقود
+        </a>
+        <a href="{{ url_for('contracts.view_contract', cid=contract.id) }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+        <button onclick="window.print()" class="btn btn-dark">
+            <i class="bi bi-printer"></i> طباعة
+        </button>
+    </div>
+</div>
+
+<!-- اختيار الفترات -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label fw-bold text-primary">
+                    <i class="bi bi-calendar-range"></i> الفترة الحالية
+                </label>
+                <select name="p1" class="form-select" onchange="this.form.submit()">
+                    <option value="this_month" {{ 'selected' if p1_type == 'this_month' }}>هذا الشهر</option>
+                    <option value="last_month" {{ 'selected' if p1_type == 'last_month' }}>الشهر الماضي</option>
+                    <option value="last_30" {{ 'selected' if p1_type == 'last_30' }}>آخر 30 يوم</option>
+                    <option value="last_7" {{ 'selected' if p1_type == 'last_7' }}>آخر 7 أيام</option>
+                    <option value="this_year" {{ 'selected' if p1_type == 'this_year' }}>هذه السنة</option>
+                    <option value="last_year" {{ 'selected' if p1_type == 'last_year' }}>السنة الماضية</option>
+                </select>
+                <div class="small text-muted mt-1">
+                    <i class="bi bi-calendar-check"></i> {{ p1_from }} → {{ p1_to }}
+                </div>
+            </div>
+            <div class="col-md-2 text-center">
+                <div class="display-5 text-muted">↔</div>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label fw-bold text-secondary">
+                    <i class="bi bi-calendar-range"></i> الفترة السابقة
+                </label>
+                <select name="p2" class="form-select" onchange="this.form.submit()">
+                    <option value="this_month" {{ 'selected' if p2_type == 'this_month' }}>هذا الشهر</option>
+                    <option value="last_month" {{ 'selected' if p2_type == 'last_month' }}>الشهر الماضي</option>
+                    <option value="last_30" {{ 'selected' if p2_type == 'last_30' }}>آخر 30 يوم</option>
+                    <option value="last_7" {{ 'selected' if p2_type == 'last_7' }}>آخر 7 أيام</option>
+                    <option value="this_year" {{ 'selected' if p2_type == 'this_year' }}>هذه السنة</option>
+                    <option value="last_year" {{ 'selected' if p2_type == 'last_year' }}>السنة الماضية</option>
+                </select>
+                <div class="small text-muted mt-1">
+                    <i class="bi bi-calendar-check"></i> {{ p2_from }} → {{ p2_to }}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- التوصيات الذكية -->
+{% if insights %}
+<div class="row g-3 mb-4">
+    {% for ins in insights %}
+    <div class="col-md-4">
+        <div class="alert alert-{{ ins.type }} mb-0 h-100">
+            <i class="bi bi-{{ ins.icon }} fs-4"></i>
+            <span class="ms-2">{{ ins.text }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- KPIs المقارنة -->
+<div class="row g-3 mb-4">
+    {% set kpis = [
+        ('المهام', 'truck', p1.count, p2.count, diffs.missions),
+        ('الإيراد', 'cash-stack', p1.revenue, p2.revenue, diffs.revenue),
+        ('التكلفة', 'receipt', p1.cost, p2.cost, diffs.cost),
+        ('الربح', 'graph-up-arrow', p1.profit, p2.profit, diffs.profit),
+    ] %}
+    
+    {% for label, icon, v1, v2, diff in kpis %}
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="text-muted small">
+                        <i class="bi bi-{{ icon }}"></i> {{ label }}
+                    </div>
+                    <span class="badge bg-{{ diff.color }} fs-6">
+                        <i class="bi bi-{{ 'arrow-up' if diff.direction == 'up' else 'arrow-down' if diff.direction == 'down' else 'dash' }}"></i>
+                        {{ '%+.1f'|format(diff.pct) }}%
+                    </span>
+                </div>
+                <h3 class="mb-1 fw-bold text-{{ diff.color }}">
+                    {% if label == 'المهام' %}
+                        {{ "{:,.0f}".format(v1) }}
+                    {% else %}
+                        {{ "{:,.0f}".format(v1) }}
+                    {% endif %}
+                </h3>
+                <div class="small text-muted">
+                    السابقة: {{ "{:,.0f}".format(v2) }}
+                </div>
+                <hr class="my-2">
+                <div class="small">
+                    <strong class="{{ 'text-success' if diff.diff >= 0 else 'text-danger' }}">
+                        {{ "%+,.0f"|format(diff.diff) }}
+                    </strong>
+                    {% if label != 'المهام' %}<small class="text-muted">AED</small>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- مؤشرات إضافية -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-info border-2 shadow-sm">
+            <div class="card-body">
+                <small class="text-muted d-block">متوسط الإيراد/مهمة</small>
+                <div class="d-flex justify-content-between align-items-end">
+                    <h4 class="mb-0 text-info fw-bold">
+                        {{ "{:,.0f}".format(p1.avg_per_mission) }} AED
+                    </h4>
+                    <span class="badge bg-{{ diffs.avg_per_mission.color }}">
+                        {{ '%+.1f'|format(diffs.avg_per_mission.pct) }}%
+                    </span>
+                </div>
+                <small class="text-muted">السابقة: {{ "{:,.0f}".format(p2.avg_per_mission) }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-success border-2 shadow-sm">
+            <div class="card-body">
+                <small class="text-muted d-block">هامش الربح</small>
+                <div class="d-flex justify-content-between align-items-end">
+                    <h4 class="mb-0 text-success fw-bold">{{ p1.margin }}%</h4>
+                    <span class="badge bg-{{ diffs.margin.color }}">
+                        {{ '%+.1f'|format(diffs.margin.pct) }}%
+                    </span>
+                </div>
+                <small class="text-muted">السابقة: {{ p2.margin }}%</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-warning border-2 shadow-sm">
+            <div class="card-body">
+                <small class="text-muted d-block">مهام مكتملة</small>
+                <div class="d-flex justify-content-between align-items-end">
+                    <h4 class="mb-0 text-warning fw-bold">{{ p1.completed }}</h4>
+                    <span class="badge bg-{{ diffs.completed.color }}">
+                        {{ '%+.1f'|format(diffs.completed.pct) }}%
+                    </span>
+                </div>
+                <small class="text-muted">السابقة: {{ p2.completed }}</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- الرسم البياني -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white">
+        <h6 class="mb-0">
+            <i class="bi bi-bar-chart-fill text-primary"></i>
+            مقارنة بصرية
+        </h6>
+    </div>
+    <div class="card-body">
+        <div style="position: relative; height: 350px;">
+            <canvas id="comparisonChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- جدول المعدات -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white">
+        <h6 class="mb-0">
+            <i class="bi bi-tags"></i>
+            مقارنة المعدات
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>نوع المعدة</th>
+                    <th class="text-center">الفترة الحالية</th>
+                    <th class="text-center">الفترة السابقة</th>
+                    <th class="text-center">الفرق</th>
+                    <th class="text-end">إيراد حالياً</th>
+                    <th class="text-end">الفرق في الإيراد</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in equipment_comparison %}
+                <tr>
+                    <td><strong>{{ e.name }}</strong></td>
+                    <td class="text-center">
+                        <span class="badge bg-primary fs-6">{{ e.count1 }}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary fs-6">{{ e.count2 }}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ 'success' if e.count_diff >= 0 else 'danger' }} fs-6">
+                            {{ '%+d'|format(e.count_diff) }}
+                        </span>
+                    </td>
+                    <td class="text-end fw-bold">{{ "{:,.0f}".format(e.revenue1) }}</td>
+                    <td class="text-end fw-bold {{ 'text-success' if e.revenue_diff >= 0 else 'text-danger' }}">
+                        {{ "%+,.0f"|format(e.revenue_diff) }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-3">لا توجد بيانات</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- أفضل السائقين -->
+{% if p1.drivers %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white">
+        <h6 class="mb-0">
+            <i class="bi bi-person-badge"></i>
+            أفضل السائقين (الفترة الحالية)
+        </h6>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>السائق</th>
+                    <th class="text-center">المهام</th>
+                    <th class="text-end">الإيراد</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in p1.drivers %}
+                <tr>
+                    <td>
+                        {% if loop.index == 1 %}🥇
+                        {% elif loop.index == 2 %}🥈
+                        {% elif loop.index == 3 %}🥉
+                        {% else %}{{ loop.index }}{% endif %}
+                    </td>
+                    <td><strong>{{ d.name[:40] }}</strong></td>
+                    <td class="text-center"><span class="badge bg-info">{{ d.count }}</span></td>
+                    <td class="text-end text-success fw-bold">{{ "{:,.0f}".format(d.revenue) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('comparisonChart');
+    if (!ctx) return;
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['المهام', 'الإيراد (AED)', 'التكلفة (AED)', 'الربح (AED)'],
+            datasets: [
+                {
+                    label: 'الفترة الحالية ({{ p1_from }} → {{ p1_to }})',
+                    data: [{{ p1.count }}, {{ p1.revenue }}, {{ p1.cost }}, {{ p1.profit }}],
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: '#1e40af',
+                    borderWidth: 2,
+                },
+                {
+                    label: 'الفترة السابقة ({{ p2_from }} → {{ p2_to }})',
+                    data: [{{ p2.count }}, {{ p2.revenue }}, {{ p2.cost }}, {{ p2.profit }}],
+                    backgroundColor: 'rgba(148, 163, 184, 0.6)',
+                    borderColor: '#64748b',
+                    borderWidth: 2,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString()
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } }
+            }
+        }
+    });
+});
+</script>
+
+{% endblock %}

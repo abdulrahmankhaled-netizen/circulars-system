@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-tag text-primary"></i> {{ title }}
+    </h3>
+    <a href="{{ url_for('equipment.list_prices') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <form method="POST" novalidate class="card shadow-sm border-0">
+            {{ form.hidden_tag() }}
+
+            <div class="card-body">
+
+                <h6 class="text-primary border-bottom pb-2 mb-3">
+                    <i class="bi bi-info-circle"></i> بيانات السعر
+                </h6>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.supplier_id.label(class="form-label fw-bold") }}
+                        {{ form.supplier_id(class="form-select") }}
+                        {% for e in form.supplier_id.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.equipment_key.label(class="form-label fw-bold") }}
+                        {{ form.equipment_key(class="form-select") }}
+                        {% for e in form.equipment_key.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.unit_price.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            {{ form.unit_price(class="form-control",
+                                               step="0.01", min="0",
+                                               placeholder="0.00") }}
+                            <span class="input-group-text">AED</span>
+                        </div>
+                        {% for e in form.unit_price.errors %}
+                            <div class="text-danger small mt-1">{{ e }}</div>
+                        {% endfor %}
+                        <small class="text-muted">
+                            السعر المتفق عليه مع هذا المورد لهذه المعدة
+                        </small>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">الحالة</label>
+                        <div class="form-check form-switch mt-1">
+                            {{ form.is_active(class="form-check-input", id="isActive") }}
+                            <label class="form-check-label" for="isActive">
+                                مفعّل (يُستخدم في الحساب الآلي)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        {{ form.notes.label(class="form-label fw-bold") }}
+                        {{ form.notes(class="form-control", rows=2,
+                                      placeholder="أي ملاحظات حول هذا السعر...") }}
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="card-footer bg-light d-flex justify-content-between flex-wrap gap-2">
+                <button type="submit" class="btn btn-success px-4">
+                    <i class="bi bi-check2-circle"></i>
+                    {{ 'حفظ التعديلات' if price else 'إضافة السعر' }}
+                </button>
+                <a href="{{ url_for('equipment.list_prices') }}"
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> إلغاء
+                </a>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}

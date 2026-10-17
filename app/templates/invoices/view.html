@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}{{ invoice.invoice_number }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-receipt text-primary"></i>
+            {{ invoice.invoice_number }}
+        </h3>
+        <span class="badge bg-{{ invoice.type_color() }} fs-6">
+            {{ invoice.type_label() }}
+        </span>
+        <span class="badge bg-{{ invoice.status_color() }} fs-6">
+            {{ invoice.status_label() }}
+        </span>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('invoices.print_invoice', iid=invoice.id) }}"
+           target="_blank" class="btn btn-dark">
+            <i class="bi bi-printer"></i> طباعة
+        </a>
+        {% if invoice.status != 'paid' and has_permission('invoices.edit') %}
+        <a href="{{ url_for('invoices.edit_invoice', iid=invoice.id) }}"
+           class="btn btn-warning">
+            <i class="bi bi-pencil"></i> تعديل
+        </a>
+        <form method="POST" action="{{ url_for('invoices.mark_paid', iid=invoice.id) }}"
+              class="d-inline" onsubmit="return confirm('تحديد الفاتورة كمدفوعة؟');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-success">
+                <i class="bi bi-check2-circle"></i> تحديد كمدفوعة
+            </button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('invoices.list_invoices') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <!-- التفاصيل -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-info-circle text-primary"></i> تفاصيل الفاتورة</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% if invoice.invoice_type == 'supplier' and invoice.supplier %}
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المورد</small>
+                        <a href="{{ url_for('suppliers.view_supplier', sid=invoice.supplier.id) }}">
+                            <strong>{{ invoice.supplier.company_name_ar }}</strong>
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if invoice.invoice_type == 'customer' %}
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">العميل</small>
+                        <strong>{{ invoice.customer_name or '—' }}</strong>
+                        {% if invoice.customer_phone %}
+                            <br><small dir="ltr">{{ invoice.customer_phone }}</small>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if invoice.contract %}
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">العقد</small>
+                        <a href="{{ url_for('contracts.view_contract', cid=invoice.contract.id) }}">
+                            {{ invoice.contract.contract_number }}
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if invoice.mission %}
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">المهمة</small>
+                        <a href="{{ url_for('missions.view_mission', mid=invoice.mission.id) }}">
+                            {{ invoice.mission.mission_number }}
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">تاريخ الإصدار</small>
+                        <span>{{ invoice.issue_date.strftime('%Y-%m-%d') if invoice.issue_date else '—' }}</span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">تاريخ الاستحقاق</small>
+                        <span>{{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else '—' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- المالية -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-cash-coin text-success"></i> المبالغ</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4 text-center p-3 border rounded">
+                        <small class="text-muted d-block">قبل الضريبة</small>
+                        <h4 class="mb-0">{{ "{:,.2f}".format(invoice.amount or 0) }} AED</h4>
+                    </div>
+                    <div class="col-md-4 text-center p-3 border rounded">
+                        <small class="text-muted d-block">الضريبة 5%</small>
+                        <h4 class="mb-0 text-warning">
+                            {{ "{:,.2f}".format(invoice.vat_amount or 0) }} AED
+                        </h4>
+                    </div>
+                    <div class="col-md-4 text-center p-3 border rounded bg-light">
+                        <small class="text-muted d-block">الإجمالي</small>
+                        <h4 class="mb-0 text-success">
+                            {{ "{:,.2f}".format(invoice.total_amount or 0) }} AED
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if invoice.notes %}
+        <div class="card shadow-sm border-0 mt-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-journal-text"></i> ملاحظات</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-0" style="white-space: pre-line;">{{ invoice.notes }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- العمود الأيمن -->
+    <div class="col-lg-4">
+        <!-- المرفق -->
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-file-earmark-pdf text-danger"></i> المرفق</h6>
+            </div>
+            <div class="card-body text-center">
+                {% if invoice.pdf_path %}
+                    <div class="alert alert-success py-2 mb-2 small">✅ محفوظ</div>
+                    <a href="{{ url_for('static', filename='uploads/' + invoice.pdf_path) }}"
+                       target="_blank" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="bi bi-eye"></i> عرض الفاتورة
+                    </a>
+                {% else %}
+                    <div class="alert alert-warning py-2 mb-0 small">
+                        ⏳ لم يُرفع بعد
+                        <br>
+                        <a href="{{ url_for('invoices.edit_invoice', iid=invoice.id) }}"
+                           class="small">رفع الآن</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- معلومات إضافية -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-clock-history"></i> معلومات</h6>
+            </div>
+            <div class="card-body small">
+                <p><strong>المنشئ:</strong> {{ invoice.created_by.full_name if invoice.created_by else '—' }}</p>
+                <p><strong>تاريخ الإنشاء:</strong>
+                    {{ invoice.created_at.strftime('%Y-%m-%d %H:%M') if invoice.created_at else '—' }}</p>
+                {% if invoice.approved_by %}
+                <p><strong>المعتمد:</strong> {{ invoice.approved_by.full_name }}<br>
+                    <small class="text-muted">{{ invoice.approved_at.strftime('%Y-%m-%d %H:%M') if invoice.approved_at else '' }}</small></p>
+                {% endif %}
+                {% if invoice.paid_at %}
+                <p><strong>تاريخ الدفع:</strong> {{ invoice.paid_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
