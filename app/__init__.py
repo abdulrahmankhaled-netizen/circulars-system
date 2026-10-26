@@ -167,3 +167,16 @@ def _register_errors(app):
     def server_error(e):
         db.session.rollback()
         return render_template("errors/500.html"), 500
+@app.route("/health")
+def health():
+    ...
+    @app.route("/health")
+    def health():
+        """Health check for Render."""
+        from app.extensions import db
+        from sqlalchemy import text
+        try:
+            db.session.execute(text("SELECT 1"))
+            return {"status": "ok"}, 200
+        except Exception as e:
+            return {"status": "error", "detail": str(e)}, 503

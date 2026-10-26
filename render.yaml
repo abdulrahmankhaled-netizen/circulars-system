@@ -11,21 +11,18 @@ services:
       - key: FLASK_DEBUG
         value: "0"
 
-      # ⚠️ إلزامي — بدونها سيُنشأ admin بكلمة مرور افتراضية = ثغرة!
       - key: ADMIN_USERNAME
         value: admin
       - key: ADMIN_PASSWORD
-        generateValue: true          # Render يولّد كلمة مرور قوية تلقائياً
+        generateValue: true
       - key: ADMIN_FULL_NAME
-        value: "مدير النظام"
+        value: "System Administrator"
       - key: ADMIN_EMAIL
-        sync: false                  # ستُدخل يدوياً في Render Dashboard
+        sync: false
 
-      # قاعدة البيانات (يُفضَّل تعريفها صراحة لتطابق disk mount)
       - key: DATABASE_URL
         value: "sqlite:////app/instance/app.db"
 
-      # الحماية
       - key: EXTERNAL_API_KEY
         generateValue: true
       - key: MAX_CONTENT_LENGTH_MB
