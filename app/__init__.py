@@ -167,9 +167,6 @@ def _register_errors(app):
     def server_error(e):
         db.session.rollback()
         return render_template("errors/500.html"), 500
-@app.route("/health")
-def health():
-    ...
     @app.route("/health")
     def health():
         """Health check for Render."""
