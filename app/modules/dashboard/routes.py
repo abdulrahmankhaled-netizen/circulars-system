@@ -643,3 +643,112 @@ def index():
         recent_missions=recent_missions,
         now=datetime.utcnow(),
     )
+# ============================================================
+#  AI Analytics (المستشار الاستراتيجي الذكي - Deep Logic)
+# ============================================================
+@bp.route("/ai-analytics")
+@login_required
+def ai_analytics():
+    from sqlalchemy import func
+    from app.modules.suppliers.models import Supplier
+    from app.modules.invoices.models import Invoice
+    from app.modules.contracts.models import Contract
+    from datetime import datetime, timedelta
+    from collections import defaultdict
+    
+    today = datetime.utcnow().date()
+    this_month_start = today.replace(day=1)
+    last_month_end = this_month_start - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+
+    # --- 1. تحليل الأداء المالي (Financial Trend Analysis) ---
+    all_missions = Mission.query.all()
+    total_revenue = sum(m.revenue or 0 for m in all_missions)
+    total_cost = sum(m.cost or 0 for m in all_missions)
+    total_profit = total_revenue - total_cost
+    margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+
+    this_month_missions = [m for m in all_missions if m.mission_date and m.mission_date.date() >= this_month_start]
+    last_month_missions = [m for m in all_missions if m.mission_date and last_month_start <= m.mission_date.date() <= last_month_end]
+
+    this_month_rev = sum(m.revenue or 0 for m in this_month_missions)
+    last_month_rev = sum(m.revenue or 0 for m in last_month_missions)
+    
+    rev_growth = 0
+    if last_month_rev > 0:
+        rev_growth = ((this_month_rev - last_month_rev) / last_month_rev) * 100
+
+    # --- 2. كشف المخاطر المالية (Cashflow & Risk) ---
+    overdue_invoices = Invoice.query.filter(
+        Invoice.due_date.isnot(None), Invoice.due_date < today, Invoice.status != "paid"
+    ).all()
+    overdue_amount = sum(i.total_amount or 0 for i in overdue_invoices)
+
+    # --- 3. تحليل أداء الموردين (Supplier Intelligence) ---
+    supplier_stats = db.session.query(
+        Supplier.company_name_ar,
+        func.count(Mission.id).label('missions_count'),
+        func.sum(Mission.revenue).label('revenue'),
+        func.sum(Mission.cost).label('cost')
+    ).join(Contract, Contract.supplier_id == Supplier.id)\
+     .join(Mission, Mission.contract_id == Contract.id)\
+     .group_by(Supplier.id).all()
+
+    worst_supplier = None
+    worst_margin = 100
+    for s in supplier_stats:
+        s_rev = float(s.revenue or 0)
+        s_cost = float(s.cost or 0)
+        if s_rev > 0:
+            s_margin = ((s_rev - s_cost) / s_rev) * 100
+            if s_margin < worst_margin and s.missions_count > 2:
+                worst_margin = s_margin
+                worst_supplier = s.company_name_ar
+
+    # --- 4. بناء التوصيات الاستراتيجية (AI Insights) ---
+    insights = []
+
+    # تحليل النمو
+    if rev_growth > 10:
+        insights.append({"type": "success", "title": "نمو قوي", "text": f"الإيرادات نمت بنسبة {rev_growth:.1f}% مقارنة بالشهر الماضي. استمروا في هذا النهج."})
+    elif rev_growth < -10:
+        insights.append({"type": "danger", "title": "تراجع مقلق", "text": f"انخفاض بنسبة {abs(rev_growth):.1f}% في إيرادات هذا الشهر. يجب مراجعة استراتيجية جلب المهام."})
+
+    # تحليل السيولة
+    if overdue_amount > 0:
+        insights.append({"type": "warning", "title": "نزيف نقدي", "text": f"يوجد مبلغ {overdue_amount:,.0f} درهم عالق في فواتير متأخرة. هذا المبلغ يمثل { (overdue_amount/total_revenue*100) if total_revenue > 0 else 0:.1f}% من إجمالي إيراداتك. فعّل قسم التحصيل فوراً."})
+
+    # تحليل الموردين
+    if worst_supplier:
+        insights.append({"type": "danger", "title": "مورد يسبب خسارة", "text": f"المورد '{worst_supplier}' يعمل بهوامش ربح خطيرة ({worst_margin:.1f}%). نوصي بمراجعة أسعاره أو تقليل الاعتماد عليه."})
+
+    # تحليل الكفاءة التشغيلية
+    stuck_missions = Mission.query.filter(Mission.status == "in_progress", Mission.started_at < datetime.utcnow() - timedelta(hours=24)).count()
+    if stuck_missions > 0:
+        insights.append({"type": "info", "title": "اختناق تشغيلي", "text": f"يوجد {stuck_missions} مهمة تجاوزت 24 ساعة دون إنجاز. هذا يؤثر على رضا العملاء ويؤخر الفواتير."})
+
+    # --- 5. التنبؤ المالي (Forecasting) ---
+    avg_rev_3months = total_revenue / 3 if total_revenue > 0 else 0
+    forecast = avg_rev_3months * 1.05 # افتراض نمو 5%
+    
+    if forecast > this_month_rev:
+        insights.append({"type": "success", "title": "تنبؤ إيجابي", "text": f"بناءً على الأنماط الحالية، نتوقع أن تصل إيرادات الشهر القادم إلى {forecast:,.0f} درهم (بزيادة 5%)."})
+    else:
+        insights.append({"type": "warning", "title": "تنبؤ حذر", "text": f"النظام يتوقع تراجعاً طفيفاً في الإيرادات الشهر القادم إلى {forecast:,.0f} درهم ما لم يتم ضخ عقود جديدة."})
+
+
+    # --- 6. الرسوم البيانية ---
+    top_suppliers = sorted(supplier_stats, key=lambda x: x.revenue or 0, reverse=True)[:5]
+    supplier_names = [s.company_name_ar for s in top_suppliers]
+    supplier_revenues = [float(s.revenue or 0) for s in top_suppliers]
+
+    health_score = min(100, max(0, int(margin * 2.5)))
+    health_color = "#10b981" if health_score >= 80 else "#f59e0b" if health_score >= 50 else "#ef4444"
+
+    return render_template(
+        "dashboard/ai_analytics.html",
+        total_revenue=total_revenue, total_profit=total_profit, margin=margin,
+        insights=insights, supplier_names=supplier_names, supplier_revenues=supplier_revenues,
+        health_score=health_score, health_color=health_color, missions_count=len(all_missions),
+        rev_growth=rev_growth, overdue_amount=overdue_amount, forecast=forecast
+    )

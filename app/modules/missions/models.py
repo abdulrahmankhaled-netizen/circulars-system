@@ -105,6 +105,10 @@ class Mission(db.Model, TimestampMixin):
     customer_invoice_status: Mapped[str] = mapped_column(
         String(20), default="pending"
     )
+    
+    # ⭐ جديد: متابعة الدفع
+    followup_status: Mapped[str] = mapped_column(String(30), default="pending")
+    payment_notes: Mapped[str] = mapped_column(Text, nullable=True)
 
     notes: Mapped[str] = mapped_column(Text, nullable=True)
     completion_notes: Mapped[str] = mapped_column(Text, nullable=True)
@@ -123,10 +127,33 @@ class Mission(db.Model, TimestampMixin):
 
     # Helpers
     def equipment_name_ar(self) -> str:
+        try:
+            from app.modules.equipment.models import EquipmentType
+            eq = EquipmentType.query.filter_by(key=self.equipment_key).first()
+            if eq and eq.name_ar:
+                return eq.name_ar
+        except Exception:
+            pass
+            
         from app.core.constants import EQUIPMENT_TYPES
         for eq in EQUIPMENT_TYPES:
             if eq["key"] == self.equipment_key:
                 return eq["name_ar"]
+        return self.equipment_key
+
+    def equipment_name_en(self) -> str:
+        try:
+            from app.modules.equipment.models import EquipmentType
+            eq = EquipmentType.query.filter_by(key=self.equipment_key).first()
+            if eq and eq.name_en:
+                return eq.name_en
+        except Exception:
+            pass
+            
+        from app.core.constants import EQUIPMENT_TYPES
+        for eq in EQUIPMENT_TYPES:
+            if eq["key"] == self.equipment_key:
+                return eq.get("name_en", self.equipment_key)
         return self.equipment_key
 
     def equipment_name_en(self) -> str:

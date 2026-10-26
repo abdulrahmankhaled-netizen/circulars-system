@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}متابعة الدفع{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-wallet2 text-primary"></i> متابعة الدفع للمركبات
+    </h3>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('missions.list_missions') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-right"></i> العودة للمهام
+        </a>
+        <a href="{{ url_for('missions.export_followup_excel', status=status_filter) }}" class="btn btn-success fw-bold">
+            <i class="bi bi-file-earmark-excel"></i> تنزيل الإكسل
+        </a>
+        <button type="button" class="btn btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#uploadFollowupModal">
+            <i class="bi bi-cloud-upload"></i> رفع الملف المحدث
+        </button>
+    </div>
+</div>
+
+<!-- البابلز الثلاثة -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <a href="{{ url_for('missions.followup_list', status='pending') }}" class="text-decoration-none">
+            <div class="card border-warning border-2 shadow-sm {{ 'bg-warning text-dark' if status_filter == 'pending' else '' }}">
+                <div class="card-body text-center">
+                    <h1 class="mb-1"><i class="bi bi-clock-history"></i></h1>
+                    <h4 class="mb-1 fw-bold">معلق بانتظار الدفع</h4>
+                    <h2 class="mb-0">{{ stats.pending }}</h2>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{{ url_for('missions.followup_list', status='circular') }}" class="text-decoration-none">
+            <div class="card border-info border-2 shadow-sm {{ 'bg-info text-white' if status_filter == 'circular' else '' }}">
+                <div class="card-body text-center">
+                    <h1 class="mb-1"><i class="bi bi-megaphone"></i></h1>
+                    <h4 class="mb-1 fw-bold">تم رفع تعميم</h4>
+                    <h2 class="mb-0">{{ stats.circular }}</h2>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="{{ url_for('missions.followup_list', status='paid') }}" class="text-decoration-none">
+            <div class="card border-success border-2 shadow-sm {{ 'bg-success text-white' if status_filter == 'paid' else '' }}">
+                <div class="card-body text-center">
+                    <h1 class="mb-1"><i class="bi bi-check-circle"></i></h1>
+                    <h4 class="mb-1 fw-bold">تم الدفع</h4>
+                    <h2 class="mb-0">{{ stats.paid }}</h2>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- الجدول -->
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            {% if status_filter == 'pending' %} قائمة المعلقة
+            {% elif status_filter == 'circular' %} قائمة التعاميم المرفوعة
+            {% elif status_filter == 'paid' %} قائمة المدفوعة
+            {% else %} كل المركبات {% endif %}
+            <span class="badge bg-secondary">{{ missions|length }}</span>
+        </h5>
+        {% if status_filter %}
+            <a href="{{ url_for('missions.followup_list') }}" class="btn btn-sm btn-outline-secondary">عرض الكل</a>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-center">#</th>
+                    <th>رقم المهمة</th>
+                    <th>Job Order</th>
+                    <th>اللوحة</th>
+                    <th>المعدة</th>
+                    <th class="text-center">التاريخ</th>
+                    <th class="text-center">الحالة الحالية</th>
+                    <th class="text-center" style="width: 250px;">تحديث الحالة</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in missions %}
+                <tr>
+                    <td class="text-center">{{ m.id }}</td>
+                    <td><code class="text-primary">{{ m.mission_number }}</code></td>
+                    <td>
+                        {% if m.job_order_id %}
+                            <span class="badge bg-info text-dark">{{ m.job_order_id }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if m.vehicle_plate %}
+                            <span class="badge bg-primary">{{ m.vehicle_plate[:15] }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td><small>{{ m.equipment_name_ar() }}</small></td>
+                    <td class="text-center"><small>{{ m.mission_date.strftime('%Y-%m-%d') if m.mission_date else '—' }}</small></td>
+                    <td class="text-center">
+                        {% if m.followup_status == 'pending' %}
+                            <span class="badge bg-warning text-dark">معلق بانتظار الدفع</span>
+                        {% elif m.followup_status == 'circular' %}
+                            <span class="badge bg-info">تم رفع تعميم</span>
+                        {% elif m.followup_status == 'paid' %}
+                            <span class="badge bg-success">تم الدفع</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <form method="POST" action="{{ url_for('missions.followup_update', mid=m.id) }}" class="d-flex gap-1">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select name="followup_status" class="form-select form-select-sm">
+                                <option value="pending" {{ 'selected' if m.followup_status == 'pending' }}>معلق</option>
+                                <option value="circular" {{ 'selected' if m.followup_status == 'circular' }}>رفع تعميم</option>
+                                <option value="paid" {{ 'selected' if m.followup_status == 'paid' }}>تم الدفع</option>
+                            </select>
+                            <button class="btn btn-sm btn-success" title="حفظ">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">لا توجد بيانات حالياً</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<!-- ═══════════ نافذة رفع ملف متابعة الدفع ═══════════ -->
+<div class="modal fade" id="uploadFollowupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-primary border-2">
+            <form method="POST" action="{{ url_for('missions.import_followup_excel') }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-cloud-upload"></i> رفع ملف الإكسل المحدث</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body text-center">
+                    <i class="bi bi-file-earmark-excel text-success display-4 mb-3 d-block"></i>
+                    <p class="text-muted small">
+                        قم برفع الملف الذي قمت بتعديل حالات الدفع فيه. سيقوم النظام بالبحث عن المهام وتحديث حالتها تلقائياً.
+                    </p>
+                    <input type="file" name="excel_file" class="form-control form-control-lg" accept=".xlsx,.xls" required>
+                </div>
+                
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-4" onclick="return confirm('هل أنت متأكد من تحديث الحالات من هذا الملف؟');">
+                        <i class="bi bi-arrow-up-circle"></i> بدء التحديث
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

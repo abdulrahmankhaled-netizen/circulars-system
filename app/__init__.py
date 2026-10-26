@@ -1,7 +1,7 @@
 """
 App Factory — ينشئ ويهيّئ التطبيق.
 """
-from flask import Flask, render_template
+from flask import Flask, render_template, session, request, redirect, url_for, g
 from flask_login import current_user
 
 from config import Config
@@ -46,6 +46,56 @@ def create_app(config_class=Config):
             "APP_NAME": app.config["APP_NAME"],
             "current_year": 2026,
         }
+
+    # ⭐ نظام الترجمة (عربي/إنجليزي)
+    TRANSLATIONS = {
+        'ar': {
+            'app_name': 'نظام إدارة العقود', 'home': 'الرئيسية', 'suppliers': 'الموردون',
+            'contracts': 'العقود', 'equipment': 'المعدات', 'requests': 'الطلبات',
+            'missions': 'المهام', 'invoices': 'الفواتير', 'followup': 'متابعة الدفع',
+            'reports': 'التقارير', 'users': 'المستخدمون', 'notifications': 'التنبيهات',
+            'logout': 'تسجيل الخروج', 'change_pwd': 'تغيير كلمة المرور', 'profile': 'الحساب',
+            'add': 'إضافة', 'new': 'جديد', 'edit': 'تعديل', 'delete': 'حذف',
+            'save': 'حفظ', 'cancel': 'إلغاء', 'search': 'بحث', 'filter': 'تصفية',
+            'print': 'طباعة', 'export': 'تصدير', 'actions': 'إجراءات', 'back': 'رجوع',
+            'view': 'عرض', 'details': 'تفاصيل', 'total': 'الإجمالي', 'amount': 'المبلغ',
+            'status': 'الحالة', 'date': 'التاريخ', 'number': 'الرقم', 'name': 'الاسم',
+            'active': 'نشط', 'draft': 'مسودة', 'pending': 'معلّق', 'paid': 'مدفوع',
+            'contract_no': 'رقم العقد', 'supplier_name': 'المورد', 'region': 'المنطقة',
+            'entity': 'الجهة', 'value': 'القيمة', 'equipment_count': 'الآليات', 'missions_count': 'المهام',
+        },
+        'en': {
+            'app_name': 'Contract Management', 'home': 'Dashboard', 'suppliers': 'Suppliers',
+            'contracts': 'Contracts', 'equipment': 'Equipment', 'requests': 'Requests',
+            'missions': 'Missions', 'invoices': 'Invoices', 'followup': 'Payment Follow-up',
+            'reports': 'Reports', 'users': 'Users', 'notifications': 'Notifications',
+            'logout': 'Logout', 'change_pwd': 'Change Password', 'profile': 'Profile',
+            'add': 'Add', 'new': 'New', 'edit': 'Edit', 'delete': 'Delete',
+            'save': 'Save', 'cancel': 'Cancel', 'search': 'Search', 'filter': 'Filter',
+            'print': 'Print', 'export': 'Export', 'actions': 'Actions', 'back': 'Back',
+            'view': 'View', 'details': 'Details', 'total': 'Total', 'amount': 'Amount',
+            'status': 'Status', 'date': 'Date', 'number': 'No.', 'name': 'Name',
+            'active': 'Active', 'draft': 'Draft', 'pending': 'Pending', 'paid': 'Paid',
+            'contract_no': 'Contract No.', 'supplier_name': 'Supplier', 'region': 'Region',
+            'entity': 'Entity', 'value': 'Value', 'equipment_count': 'Equipments', 'missions_count': 'Missions',
+        }
+    }
+
+    @app.before_request
+    def set_language():
+        if 'lang' not in session:
+            session['lang'] = 'ar' # اللغة الافتراضية
+
+    @app.context_processor
+    def inject_translations():
+        lang = session.get('lang', 'ar')
+        return dict(t=TRANSLATIONS.get(lang, TRANSLATIONS['ar']), current_lang=lang)
+
+    @app.route('/set_lang/<lang>')
+    def set_lang(lang):
+        if lang in ['ar', 'en']:
+            session['lang'] = lang
+        return redirect(request.referrer or url_for('dashboard.index'))
 
     return app
 

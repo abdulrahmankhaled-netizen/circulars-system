@@ -279,6 +279,24 @@ MISSION_TRANSITIONS = [
         "requires_comment": True,
         "notify_roles": [],
     },
+    {
+        "action": "mark_invoiced",
+        "label_ar": "مفوترة",
+        "from_states": ["verified"],
+        "to_state": "invoiced",
+        "roles": ["finance", "manager", "admin"],
+        "requires_comment": False,
+        "notify_roles": [],
+    },
+    {
+        "action": "mark_paid",
+        "label_ar": "مدفوعة",
+        "from_states": ["invoiced", "verified"],
+        "to_state": "paid",
+        "roles": ["finance", "admin"],
+        "requires_comment": False,
+        "notify_roles": [],
+    },
 ]
 
 

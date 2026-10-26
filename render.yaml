@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: contracts-system
+    env: docker
+    plan: starter
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: "production"
+      - key: FLASK_DEBUG
+        value: "0"
+
+      # ⚠️ إلزامي — بدونها سيُنشأ admin بكلمة مرور افتراضية = ثغرة!
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true          # Render يولّد كلمة مرور قوية تلقائياً
+      - key: ADMIN_FULL_NAME
+        value: "مدير النظام"
+      - key: ADMIN_EMAIL
+        sync: false                  # ستُدخل يدوياً في Render Dashboard
+
+      # قاعدة البيانات (يُفضَّل تعريفها صراحة لتطابق disk mount)
+      - key: DATABASE_URL
+        value: "sqlite:////app/instance/app.db"
+
+      # الحماية
+      - key: EXTERNAL_API_KEY
+        generateValue: true
+      - key: MAX_CONTENT_LENGTH_MB
+        value: "32"
+
+    disk:
+      name: sqlite-data
+      mountPath: /app/instance
+      sizeGB: 1
+    healthCheckPath: /health

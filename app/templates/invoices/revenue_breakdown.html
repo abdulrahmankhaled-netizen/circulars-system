@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}تفاصيل إيرادات العملاء{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h3 class="fw-bold mb-0">
+        <i class="bi bi-graph-up-arrow text-primary"></i> تفاصيل إيرادات العملاء (حسب العقود)
+    </h3>
+    <a href="{{ url_for('invoices.list_invoices') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع للفواتير
+    </a>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-center" style="width: 60px;">#</th>
+                    <th>رقم العقد</th>
+                    <th>المورد / الجهة</th>
+                    <th class="text-center">عدد المهام</th>
+                    <th class="text-end">إجمالي الإيراد</th>
+                    <th class="text-end">إجمالي التكلفة</th>
+                    <th class="text-end">صافي الربح</th>
+                    <th class="text-center">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in breakdown %}
+                <tr>
+                    <td class="text-center">{{ loop.index }}</td>
+                    <td><code class="text-primary fw-bold">{{ item.contract.contract_number }}</code></td>
+                    <td>
+                        {{ item.contract.supplier.company_name_ar }}
+                        {% if item.contract.client_entity %}
+                            <br><small class="text-muted">{{ item.contract.client_entity }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary fs-6">{{ item.mission_count }}</span>
+                    </td>
+                    <td class="text-end fw-bold text-primary">
+                        {{ "{:,.0f}".format(item.revenue) }} AED
+                    </td>
+                    <td class="text-end text-warning">
+                        {{ "{:,.0f}".format(item.cost) }} AED
+                    </td>
+                    <td class="text-end fw-bold {{ 'text-success' if item.profit >= 0 else 'text-danger' }}">
+                        {{ "{:+,.0f}".format(item.profit) }} AED
+                    </td>
+                    <td class="text-center">
+                        <a href="{{ url_for('contracts.view_contract', cid=item.contract.id) }}" class="btn btn-sm btn-info">
+                            <i class="bi bi-eye"></i> العقد
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                        لا توجد مهام مرتبطة بعقود حتى الآن.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

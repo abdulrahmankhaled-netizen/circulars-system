@@ -38,7 +38,7 @@
                                 </button>
                             </div>
                         </div>
-                        <div id="scanStatus" class="mt-2 small"></div>
+                        <div id="scanStatus" class="mt-2 small fw-bold"></div>
                     </div>
                 </div>
 
@@ -54,10 +54,7 @@
                     </div>
                     <div class="col-md-4">
                         {{ form.invoice_number.label(class="form-label fw-bold") }}
-                        {{ form.invoice_number(class="form-control") }}
-                        {% for e in form.invoice_number.errors %}
-                            <div class="text-danger small mt-1">{{ e }}</div>
-                        {% endfor %}
+                        {{ form.invoice_number(class="form-control", id="invoice_number") }}
                     </div>
                     <div class="col-md-4">
                         {{ form.status.label(class="form-label fw-bold") }}
@@ -73,7 +70,7 @@
                 <div class="row g-3">
                     <div class="col-md-6" id="supplierField">
                         {{ form.supplier_id.label(class="form-label fw-bold") }}
-                        {{ form.supplier_id(class="form-select") }}
+                        {{ form.supplier_id(class="form-select", id="supplier_id") }}
                     </div>
                     <div class="col-md-6 customer-field">
                         {{ form.customer_name.label(class="form-label fw-bold") }}
@@ -101,7 +98,7 @@
                     </div>
                     <div class="col-md-6">
                         {{ form.issue_date.label(class="form-label fw-bold") }}
-                        {{ form.issue_date(class="form-control", type="date") }}
+                        {{ form.issue_date(class="form-control", type="date", id="issue_date") }}
                     </div>
                     <div class="col-md-6">
                         {{ form.due_date.label(class="form-label fw-bold") }}
@@ -140,11 +137,6 @@
                     </div>
                 </div>
 
-                <div class="alert alert-info mt-3 mb-0 small">
-                    <i class="bi bi-info-circle"></i>
-                    أدخل المبلغ قبل الضريبة — سيُحسب الباقي تلقائياً (5%).
-                </div>
-
                 <!-- المرفق -->
                 <h6 class="text-primary border-bottom pb-2 mb-3 mt-4">
                     <i class="bi bi-paperclip"></i> المرفق
@@ -154,14 +146,6 @@
                     <div class="col-md-6">
                         {{ form.pdf_file.label(class="form-label fw-bold") }}
                         {{ form.pdf_file(class="form-control") }}
-                        {% if invoice and invoice.pdf_path %}
-                            <small class="text-success d-block mt-1">
-                                <i class="bi bi-check-circle"></i>
-                                <a href="{{ url_for('static', filename='uploads/' + invoice.pdf_path) }}" target="_blank">
-                                    عرض الفاتورة الحالية
-                                </a>
-                            </small>
-                        {% endif %}
                     </div>
                     <div class="col-12">
                         {{ form.notes.label(class="form-label fw-bold") }}
@@ -186,8 +170,9 @@
 
 <!-- ═══════════ JavaScript ═══════════ -->
 <script>
-(function() {
-    // ═══════════ 1. حساب VAT ═══════════
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // 1. حساب VAT
     const amountInp = document.getElementById('amountInput');
     const vatInp = document.getElementById('vatInput');
     const totalInp = document.getElementById('totalInput');
@@ -200,10 +185,9 @@
         if (vatInp) vatInp.value = vat.toFixed(2);
         if (totalInp) totalInp.value = total.toFixed(2);
     }
+    if(amountInp) amountInp.addEventListener('input', recalc);
 
-    amountInp?.addEventListener('input', recalc);
-
-    // ═══════════ 2. إظهار/إخفاء الحقول ═══════════
+    // 2. إظهار/إخفاء الحقول
     const typeSel = document.getElementById('invoiceType');
     const supplierField = document.getElementById('supplierField');
     const customerFields = document.querySelectorAll('.customer-field');
@@ -214,113 +198,75 @@
         if (supplierField) supplierField.style.display = isSupplier ? '' : 'none';
         customerFields.forEach(el => el.style.display = isSupplier ? 'none' : '');
     }
-    typeSel?.addEventListener('change', toggleParty);
+    if(typeSel) typeSel.addEventListener('change', toggleParty);
     toggleParty();
 
-    // ═══════════ 3. المسح الضوئي (OCR) ═══════════
+    // 3. المسح الضوئي
     const fileInput = document.getElementById('scanInvoiceFile');
     const scanBtn = document.getElementById('scanInvoiceBtn');
     const statusEl = document.getElementById('scanStatus');
 
     if (!scanBtn) return;
 
-    function showStatus(msg, type) {
-        statusEl.innerHTML = msg;
-        statusEl.className = 'mt-2 small text-' + type;
-    }
-
-    scanBtn.addEventListener('click', async function() {
+    scanBtn.addEventListener('click', async function(e) {
+        e.preventDefault(); 
+        
         if (!fileInput.files || !fileInput.files[0]) {
-            showStatus('⚠️ الرجاء اختيار ملف أولاً', 'warning');
+            alert("⚠️ الرجاء اختيار ملف أولاً");
             return;
         }
 
-        const file = fileInput.files[0];
         scanBtn.disabled = true;
         scanBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> جاري القراءة...';
-        showStatus('🔄 جاري تحليل الفاتورة...', 'info');
+        if (statusEl) statusEl.innerHTML = '🔄 جاري تحليل الفاتورة...';
 
         const formData = new FormData();
-        formData.append('invoice_file', file);
-
+        formData.append('invoice_file', fileInput.files[0]);
+        
         const csrfToken = document.querySelector('input[name="csrf_token"]');
         if (csrfToken) formData.append('csrf_token', csrfToken.value);
 
         try {
-            const resp = await fetch('{{ url_for("invoices.extract_invoice") }}', {
+            const resp = await fetch("{{ url_for('invoices.extract_invoice') }}", {
                 method: 'POST',
                 body: formData,
             });
 
             const data = await resp.json();
-            console.log('[OCR] Response:', data);
+            console.log("البيانات المستلمة:", data);
 
             if (data.error) {
-                showStatus('❌ ' + data.error, 'danger');
+                alert("❌ خطأ: " + data.error);
                 return;
             }
 
-            let filled = 0;
-
-            if (data.invoice_number) {
-                const el = document.querySelector('input[name="invoice_number"]');
-                if (el && !el.value) { el.value = data.invoice_number; filled++; }
-            }
-            if (data.issue_date) {
-                const el = document.querySelector('input[name="issue_date"]');
-                if (el && !el.value) { el.value = data.issue_date; filled++; }
-            }
-            if (data.amount && data.amount > 0) {
-                const el = document.querySelector('input[name="amount"]');
-                if (el && !el.value) { el.value = data.amount.toFixed(2); filled++; }
-            }
-            if (data.vat_amount && data.vat_amount > 0) {
-                const el = document.querySelector('input[name="vat_amount"]');
-                if (el && !el.value) { el.value = data.vat_amount.toFixed(2); }
-            }
-            if (data.total_amount && data.total_amount > 0) {
-                const el = document.querySelector('input[name="total_amount"]');
-                if (el && !el.value) { el.value = data.total_amount.toFixed(2); }
-            }
+            // تعبئة الحقول باستخدام الـ ID
+            if (data.invoice_number) document.getElementById('invoice_number').value = data.invoice_number;
+            if (data.issue_date) document.getElementById('issue_date').value = data.issue_date;
+            if (data.amount > 0) document.getElementById('amountInput').value = data.amount.toFixed(2);
+            if (data.vat_amount > 0) document.getElementById('vatInput').value = data.vat_amount.toFixed(2);
+            if (data.total_amount > 0) document.getElementById('totalInput').value = data.total_amount.toFixed(2);
+            
             if (data.supplier_id) {
-                const el = document.querySelector('select[name="supplier_id"]');
-                if (el) { el.value = data.supplier_id; filled++; }
+                document.getElementById('supplier_id').value = data.supplier_id;
             }
 
-            if (typeSel) typeSel.value = 'supplier';
-
-            // إرفاق نفس الملف تلقائياً في حقل المرفق
-            const pdfEl = document.querySelector('input[name="pdf_file"]');
-            if (pdfEl && !pdfEl.files[0]) {
-                try {
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    pdfEl.files = dt.files;
-                } catch (e) {}
+            // إظهار نجاح
+            if (statusEl) {
+                statusEl.innerHTML = '✅ تم قراءة الفاتورة وتعبئة البيانات!';
+                statusEl.className = 'mt-2 small fw-bold text-success';
             }
-
-            if (filled > 0) {
-                let extras = [];
-                if (data.supplier_name) extras.push('المورد: ' + data.supplier_name);
-                showStatus(`✅ تم استخراج ${filled} حقل — ${extras.join(' | ')}`, 'success');
-            } else {
-                showStatus('⚠️ لم يتعرف النظام على بيانات — راجع F12 → Console', 'warning');
-            }
-
-            if (data.raw_text) {
-                console.log('=== RAW TEXT ===');
-                console.log(data.raw_text);
-            }
+            alert("✅ نجاح! تم استخراج البيانات وتعبئتها.");
 
         } catch (err) {
-            console.error('[OCR] Error:', err);
-            showStatus('❌ فشل الاتصال: ' + err.message, 'danger');
+            console.error(err);
+            alert("❌ فشل الاتصال: " + err.message);
         } finally {
             scanBtn.disabled = false;
             scanBtn.innerHTML = '<i class="bi bi-search"></i> مسح وقراءة الفاتورة';
         }
     });
-})();
+});
 </script>
 
 {% endblock %}

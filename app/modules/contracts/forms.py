@@ -1,91 +1,59 @@
 """نماذج العقود."""
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import (
-    StringField, SelectField, DateField, FloatField,
-    TextAreaField, BooleanField, SubmitField,
-)
+from wtforms import StringField, SelectField, DateField, FloatField, TextAreaField, SubmitField, IntegerField
 from wtforms.validators import DataRequired, Optional, Length, NumberRange
 
-
 class ContractForm(FlaskForm):
-    # ============ المورد ============
-    supplier_id = SelectField(
-        "المورد", coerce=int, validators=[DataRequired()]
-    )
-
-    contract_number = StringField(
-        "رقم العقد", validators=[DataRequired(), Length(3, 60)]
-    )
-
-    # ============ الجهة والمنطقة ============
-    client_entity = StringField(
-        "الجهة (عربي)", validators=[Optional(), Length(max=150)]
-    )
-    client_entity_en = StringField(
-        "الجهة (إنجليزي)", validators=[Optional(), Length(max=150)]
-    )
-    region = StringField(
-        "المنطقة (عربي)", validators=[Optional(), Length(max=120)]
-    )
-    region_en = StringField(
-        "المنطقة (إنجليزي)", validators=[Optional(), Length(max=120)]
-    )
-    location_keywords = TextAreaField(
-        "كلمات الموقع المفتاحية (افصل بفاصلة)",
-        validators=[Optional()],
-    )
-
-    # ============ المدد ============
+    supplier_id = SelectField("المورد", coerce=int, validators=[DataRequired()])
+    contract_number = StringField("رقم العقد", validators=[DataRequired(), Length(3, 60)])
+    client_entity = StringField("الجهة (عربي)", validators=[Optional(), Length(max=150)])
+    client_entity_en = StringField("الجهة (إنجليزي)", validators=[Optional(), Length(max=150)])
+    region = StringField("المنطقة (عربي)", validators=[Optional(), Length(max=120)])
+    region_en = StringField("المنطقة (إنجليزي)", validators=[Optional(), Length(max=120)])
+    project_name = StringField("اسم المشروع / العملية", validators=[Optional(), Length(max=150)])
+    location_keywords = TextAreaField("كلمات الموقع المفتاحية", validators=[Optional()])
     start_date = DateField("تاريخ البداية", validators=[Optional()])
     end_date = DateField("تاريخ الانتهاء", validators=[Optional()])
-
-    # ============ القيمة ============
-    value = FloatField(
-        "قيمة العقد",
-        validators=[Optional(), NumberRange(min=0)],
-        default=0.0,
-    )
-    currency = SelectField(
-        "العملة",
-        choices=[("AED", "AED"), ("USD", "USD")],
-        default="AED",
-    )
-    value_period = SelectField(
-        "فترة التسعير",
-        choices=[
-            ("per_mission", "لكل مهمة"),
-            ("monthly", "شهرياً"),
-            ("quarterly", "كل 3 أشهر"),
-            ("semi_annual", "كل 6 أشهر"),
-            ("annual", "سنوياً"),
-        ],
-        default="per_mission",
-    )
-    payment_terms = StringField(
-        "شروط الدفع", validators=[Optional(), Length(max=200)]
-    )
-
-    # ============ المرفق ============
-    signed_document = FileField(
-        "نسخة العقد الموقّعة",
-        validators=[Optional(), FileAllowed(["pdf", "doc", "docx", "png", "jpg"])],
-    )
-
-    # ============ الحالة ============
-    status = SelectField(
-        "الحالة",
-        choices=[
-            ("draft", "مسودة"),
-            ("pending_signature", "بانتظار التوقيع"),
-            ("active", "نشط"),
-            ("expiring", "قارب الانتهاء"),
-            ("expired", "منتهي"),
-            ("terminated", "ملغى"),
-        ],
-        default="draft",
-    )
-
+    value = FloatField("قيمة العقد", validators=[Optional(), NumberRange(min=0)], default=0.0)
+    currency = SelectField("العملة", choices=[("AED", "AED"), ("USD", "USD")], default="AED")
+    value_period = SelectField("فترة التسعير", choices=[("per_mission", "لكل مهمة"), ("monthly", "شهرياً")], default="per_mission")
+    payment_terms = StringField("شروط الدفع", validators=[Optional(), Length(max=200)])
+    signed_document = FileField("نسخة العقد الموقّعة", validators=[Optional(), FileAllowed(["pdf", "doc", "docx", "png", "jpg"])])
+    status = SelectField("الحالة", choices=[("draft", "مسودة"), ("active", "نشط"), ("expired", "منتهي")], default="draft")
     notes = TextAreaField("ملاحظات", validators=[Optional()])
+
+    # ⭐ الحقول الجديدة
+    term_duration = StringField("مدة الاتفاقية", default="سنة واحدة", validators=[Optional()])
+    response_time_dubai = IntegerField("زمن الاستجابة (دبي) دقيقة", default=30, validators=[Optional()])
+    response_time_other = IntegerField("زمن الاستجابة (إمارات أخرى) دقيقة", default=60, validators=[Optional()])
+    notice_days = IntegerField("مدة الإخطار للإنهاء (أيام)", default=30, validators=[Optional()])
+    payment_days = IntegerField("مدة السداد (أيام)", default=30, validators=[Optional()])
+    penalty_late = FloatField("غرامة التأخير (درهم)", default=100.0, validators=[Optional()])
+    penalty_late_mins = IntegerField("غرامة التأخير لكل (دقيقة)", default=30, validators=[Optional()])
+    penalty_noshow = FloatField("غرامة عدم الاستجابة (درهم)", default=500.0, validators=[Optional()])
+    penalty_unlisted = FloatField("غرامة معدة غير مدرجة (درهم)", default=500.0, validators=[Optional()])
+    penalty_article5 = FloatField("غرامة إخلال المادة 5 (درهم)", default=5000.0, validators=[Optional()])
+    penalty_docs = FloatField("غرامة نقص التوثيق (درهم)", default=100.0, validators=[Optional()])
+    penalty_max_percent = IntegerField("حد الغرامات (%)", default=20, validators=[Optional()])
+    penalty_max_times = IntegerField("تكرار الإخلال (مرات)", default=3, validators=[Optional()])
+    penalty_max_months = IntegerField("خلال (أشهر)", default=6, validators=[Optional()])
+    insurance_liability_aed = FloatField("تأمين المسؤولية (درهم)", default=1000000.0, validators=[Optional()])
+    insurance_goods_aed = FloatField("تأمين البضائع (درهم)", default=500000.0, validators=[Optional()])
+    compensation_days = IntegerField("مدة تعويض الشركة (أيام)", default=7, validators=[Optional()])
+    incident_report_hours = IntegerField("مدة الإبلاغ عن حادث (ساعة)", default=24, validators=[Optional()])
+    invoice_submit_days = IntegerField("تقديم الفاتورة خلال (أيام)", default=5, validators=[Optional()])
+    invoice_review_days = IntegerField("مراجعة الفاتورة (أيام)", default=7, validators=[Optional()])
+    cure_days = IntegerField("مدة تصحيح الإخلال (أيام)", default=15, validators=[Optional()])
+    handover_hours = IntegerField("تسليم المركبات (ساعة)", default=24, validators=[Optional()])
+    liability_months = IntegerField("حد المسؤولية (أشهر)", default=6, validators=[Optional()])
+    confidentiality_years = IntegerField("مدة السرية (سنوات)", default=5, validators=[Optional()])
+    force_majeure_hours = IntegerField("إخطار القوة القاهرة (ساعة)", default=48, validators=[Optional()])
+    equipment_age_years = IntegerField("عمر المعدة (سنوات)", default=5, validators=[Optional()])
+    doc_upload_hours = IntegerField("رفع التوثيق (ساعة)", default=2, validators=[Optional()])
+    lead_time_days = IntegerField("مدة توفير معدات (أيام)", default=14, validators=[Optional()])
+    company_coordinator = StringField("منسق الشركة", validators=[Optional()])
+    company_phone = StringField("هاتف الشركة", validators=[Optional()])
+    company_email = StringField("إيميل الشركة", validators=[Optional()])
 
     submit = SubmitField("حفظ")

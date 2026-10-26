@@ -3,22 +3,25 @@
 
 {% block content %}
 
+<!-- ═══════════ ترويسة الطباعة ═══════════ -->
+<div class="print-header">
+    <h1>شركة الإمارات للمزادات (Emirates Auctions)</h1>
+    <h2>تقرير أداء الموردين والمقاولين</h2>
+    <p>تاريخ الطباعة: <span id="printDate"></span> | الفترة: {{ from_date or 'الكل' }} إلى {{ to_date or 'الكل' }}</p>
+</div>
+
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h3 class="fw-bold mb-0">
         <i class="bi bi-people text-warning"></i> أداء الموردين
     </h3>
     <div class="d-flex gap-2 flex-wrap">
-        <button onclick="window.print()" class="btn btn-dark">
-            <i class="bi bi-printer"></i> طباعة
-        </button>
-        <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-right"></i> رجوع
-        </a>
+        <button onclick="window.print()" class="btn btn-dark"><i class="bi bi-printer"></i> طباعة</button>
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-right"></i> رجوع</a>
     </div>
 </div>
 
-<!-- الفلترة -->
-<div class="card shadow-sm border-0 mb-4">
+<!-- الفلترة (تختفي عند الطباعة) -->
+<div class="card shadow-sm border-0 mb-4 no-print">
     <div class="card-body">
         <form method="GET" class="row g-2 align-items-end">
             <div class="col-md-3">
@@ -41,9 +44,7 @@
             </div>
             <div class="col-md-3 d-flex gap-2">
                 <button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> عرض</button>
-                <a href="{{ url_for('reports.suppliers_report') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-x-lg"></i>
-                </a>
+                <a href="{{ url_for('reports.suppliers_report') }}" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
             </div>
         </form>
     </div>
@@ -70,9 +71,7 @@
                 <tr>
                     <td>{{ loop.index }}</td>
                     <td>
-                        <a href="{{ url_for('suppliers.view_supplier', sid=r.supplier.id) }}">
-                            <strong>{{ r.supplier.company_name_ar }}</strong>
-                        </a>
+                        <strong>{{ r.supplier.company_name_ar }}</strong>
                     </td>
                     <td class="text-center">
                         <span class="badge bg-primary">{{ r.missions }}</span>
@@ -83,7 +82,7 @@
                         </span>
                     </td>
                     <td class="text-end">{{ "{:,.0f}".format(r.revenue) }}</td>
-                    <td class="text-end text-warning">{{ "{:,.0f}".format(r.cost) }}</td>
+                    <td class="text-end">{{ "{:,.0f}".format(r.cost) }}</td>
                     <td class="text-end fw-bold {{ 'text-success' if r.profit >= 0 else 'text-danger' }}">
                         {{ "{:+,.0f}".format(r.profit) }}
                     </td>
@@ -95,9 +94,7 @@
                     <td class="text-end">
                         <small>{{ "{:,.0f}".format(r.total_invoiced) }}</small>
                         <br>
-                        <small class="text-success">
-                            مدفوع: {{ "{:,.0f}".format(r.paid_invoices) }}
-                        </small>
+                        <small class="text-success">مدفوع: {{ "{:,.0f}".format(r.paid_invoices) }}</small>
                     </td>
                 </tr>
                 {% else %}
@@ -107,5 +104,20 @@
         </table>
     </div>
 </div>
+
+<!-- تذييل الطباعة -->
+<div class="print-footer">
+    <p>هذا التقرير سري ومخصص للإدارة العليا فقط - نظام إدارة العقود © 2026</p>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var today = new Date();
+        var dd = String(today.getDate()).padStart(2, '0');
+        var mm = String(today.getMonth() + 1).padStart(2, '0'); //يناير هو 0
+        var yyyy = today.getFullYear();
+        document.getElementById('printDate').innerText = yyyy + '-' + mm + '-' + dd;
+    });
+</script>
+
 
 {% endblock %}

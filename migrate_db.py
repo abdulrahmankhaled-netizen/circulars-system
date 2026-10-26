@@ -41,6 +41,8 @@ def migrate():
     cursor = conn.cursor()
     # ============ الجدول: missions ============
     print("\n📋 الجدول: missions")
+    add_column_safe(cursor, "missions", "followup_status", "VARCHAR(30) DEFAULT 'pending'")
+
     add_column_safe(cursor, "missions", "is_impound", "BOOLEAN DEFAULT 0")
     add_column_safe(cursor, "missions", "qr_code", "TEXT")
     add_column_safe(cursor, "missions", "store_number", "VARCHAR(80)")

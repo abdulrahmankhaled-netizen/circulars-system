@@ -296,32 +296,7 @@
         </div>
         {% endif %}
 
-    </div>
-
-</div>
-
-<script>
-document.querySelectorAll('.action-form').forEach(form => {
-    form.addEventListener('submit', function(e) {
-        const commentEl = document.getElementById('actionComment');
-        if (commentEl) {
-            form.querySelector('input[name="comment"]').value = commentEl.value;
-        }
-        const needsComment = form.dataset.requiresComment === 'true';
-        const label = form.dataset.label || 'الإجراء';
-        if (needsComment && (!commentEl || !commentEl.value.trim())) {
-            e.preventDefault();
-            alert(`⚠️ "${label}" يتطلب تعليقاً`);
-            if (commentEl) commentEl.focus();
-            return false;
-        }
-        return confirm(`تنفيذ "${label}"؟`);
-    });
-});
-</script>
-
-{% endblock %}
-        <!-- فواتير المهمة -->
+        <!-- فواتير المهمة (تم نقلها هنا داخل الـ block) -->
         {% if has_permission('invoices.create') %}
         <div class="card shadow-sm border-primary border-2 mb-3">
             <div class="card-header bg-primary text-white">
@@ -374,3 +349,29 @@ document.querySelectorAll('.action-form').forEach(form => {
             </div>
         </div>
         {% endif %}
+
+    </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.action-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        const commentEl = document.getElementById('actionComment');
+        if (commentEl) {
+            form.querySelector('input[name="comment"]').value = commentEl.value;
+        }
+        const needsComment = form.dataset.requiresComment === 'true';
+        const label = form.dataset.label || 'الإجراء';
+        if (needsComment && (!commentEl || !commentEl.value.trim())) {
+            e.preventDefault();
+            alert(`⚠️ "${label}" يتطلب تعليقاً`);
+            if (commentEl) commentEl.focus();
+            return false;
+        }
+        return confirm(`تنفيذ "${label}"؟`);
+    });
+});
+</script>
+
+{% endblock %}

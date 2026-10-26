@@ -2,50 +2,84 @@
 {% block title %}الفواتير{% endblock %}
 
 {% block content %}
-{% if duplicates_info %}
-<div class="alert alert-warning border-warning border-2 shadow-sm mb-4">
-    <h5 class="alert-heading fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> تنبيه: مهام مكررة في الفواتير!</h5>
-    <p class="mb-2">تم اكتشاف فواتير متعددة مرتبطة بنفس المهمة. يرجى مراجعة ذلك:</p>
-    <ul class="mb-0">
-        {% for dup in duplicates_info %}
-        <li>
-            المهمة <strong>{{ dup.mission_number }}</strong> مرتبطة بـ <strong>{{ dup.count }}</strong> فواتير: 
-            <span class="text-danger fw-bold">{{ dup.invoices }}</span>
-        </li>
-        {% endfor %}
-                    <td>
-                        {% if inv.mission %}
-                            <a href="{{ url_for('missions.view_mission', mid=inv.mission.id) }}">
-                                {{ inv.mission.mission_number }}
-                            </a>
-                            {% if inv.mission_id in duplicate_missions %}
-                                <span class="badge bg-danger ms-1" title="هذه المهمة مرتبطة بأكثر من فاتورة">
-                                    <i class="bi bi-files"></i> مكررة
-                                </span>
-                            {% endif %}
-                        {% else %}—{% endif %}
-                    </td>
-    </ul>
-</div>
-{% endif %}
 
-<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <h3 class="fw-bold mb-0">
-        <i class="bi bi-receipt text-primary"></i> الفواتير
-        <span class="badge bg-secondary">{{ invoices|length }}</span>
-    </h3>
+<!-- ═══════════ التنسيقات الخاصة (CSS) ═══════════ -->
+<style>
+    /* تصميم المربعات الزجاجية */
+    .fancy-kpi-card {
+        border-radius: 20px;
+        border: none;
+        color: #fff;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 20px -5px rgba(0,0,0,0.15);
+    }
+    .fancy-kpi-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px -5px rgba(0,0,0,0.25);
+    }
+    .fancy-kpi-card::before {
+        content: '';
+        position: absolute;
+        top: -50%; right: -50%;
+        width: 150px; height: 150px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+    .bg-gradient-orange { background: linear-gradient(135deg, #ff8a00, #e52e71); }
+    .bg-gradient-blue   { background: linear-gradient(135deg, #3b82f6, #2dd4bf); }
+    .bg-gradient-purple { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+    .bg-gradient-green  { background: linear-gradient(135deg, #10b981, #059669); }
     
-    <div class="d-flex gap-2 flex-wrap">
-        <a href="{{ url_for('invoices.grouped_invoices') }}" class="btn btn-info text-white">
+    .fancy-icon {
+        width: 45px; height: 45px;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        font-size: 1.4rem;
+        backdrop-filter: blur(5px);
+    }
+    
+    /* تنسيق الجدول */
+    .table-custom th {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table-custom tbody tr {
+        transition: all 0.2s;
+    }
+    .table-custom tbody tr:hover {
+        background-color: #f8fafc;
+    }
+</style>
+
+<!-- ═══════════ شريط العنوان والأزرار ═══════════ -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-receipt text-primary"></i> إدارة الفواتير
+            <span class="badge bg-secondary rounded-pill ms-2">{{ invoices|length }}</span>
+        </h3>
+        <p class="text-muted small mb-0">تابع فواتير الموردين والعملاء، وتتبع المدفوعات والمستحقات.</p>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('invoices.grouped_invoices') }}" class="btn btn-outline-info fw-bold">
             <i class="bi bi-calendar-group"></i> عرض حسب الشهر
         </a>
         
         {% if has_permission('invoices.create') %}
         <div class="dropdown">
-            <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+            <button class="btn btn-primary fw-bold dropdown-toggle" data-bs-toggle="dropdown">
                 <i class="bi bi-plus-lg"></i> فاتورة جديدة
             </button>
-            <ul class="dropdown-menu">
+            <ul class="dropdown-menu dropdown-menu-end shadow">
                 <li><a class="dropdown-item" href="{{ url_for('invoices.add_invoice', type='supplier') }}">
                     <i class="bi bi-arrow-down-circle text-warning"></i> فاتورة مورد (ندفعها)
                 </a></li>
@@ -57,161 +91,201 @@
         {% endif %}
     </div>
 </div>
-<!-- KPI -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card kpi-card kpi-warning border-0 shadow-sm">
-            <div class="card-body">
-                <div class="text-white-50 small">💰 فواتير الموردين</div>
-                <h3 class="mb-0 text-white fw-bold">
-                    {{ "{:,.0f}".format(stats.supplier_total) }}
-                </h3>
-                <small class="text-white-50">AED</small>
+
+<!-- ═══════════ تنبيه الفواتير المكررة ═══════════ -->
+{% if duplicates_info %}
+<div class="alert alert-warning border-warning border-2 shadow-sm mb-4">
+    <h6 class="alert-heading fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> تنبيه: مهام مكررة في الفواتير!</h6>
+    <p class="mb-2 small">تم اكتشاف فواتير متعددة مرتبطة بنفس المهمة. يرجى مراجعة ذلك:</p>
+    <ul class="mb-0 small">
+        {% for dup in duplicates_info %}
+        <li>
+            المهمة <strong>{{ dup.mission_number }}</strong> مرتبطة بـ <strong>{{ dup.count }}</strong> فواتير: 
+            <span class="text-danger fw-bold">{{ dup.invoices }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- ═══════════ المربعات الإحصائية (KPIs) ═══════════ -->
+<div class="row g-4 mb-4">
+    <!-- 1. فواتير الموردين -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card fancy-kpi-card bg-gradient-orange h-100">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-white-50 mb-1 fw-bold">فواتير الموردين</h6>
+                        <h3 class="mb-0 fw-bolder fs-2">{{ "{:,.0f}".format(stats.supplier_total) }} <small class="fs-6">AED</small></h3>
+                    </div>
+                    <div class="fancy-icon"><i class="bi bi-wallet2"></i></div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card kpi-card kpi-primary border-0 shadow-sm">
-            <div class="card-body">
-                <div class="text-white-50 small">📥 فواتير العملاء</div>
-                <h3 class="mb-0 text-white fw-bold">
-                    {{ "{:,.0f}".format(stats.customer_total) }}
-                </h3>
-                <small class="text-white-50">AED</small>
+    
+    <!-- 2. إيرادات العملاء (قابلة للنقر) -->
+    <div class="col-xl-3 col-md-6">
+        <a href="{{ url_for('invoices.revenue_breakdown') }}" class="text-decoration-none d-block h-100" title="اضغط لرؤية تفاصيل العقود والإيرادات">
+            <div class="card fancy-kpi-card bg-gradient-blue h-100">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="text-white-50 mb-1 fw-bold">إيرادات العملاء المتوقعة</h6>
+                            <h3 class="mb-0 fw-bolder fs-2">{{ "{:,.0f}".format(stats.customer_total) }} <small class="fs-6">AED</small></h3>
+                        </div>
+                        <div class="fancy-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                    </div>
+                    <div class="mt-2 text-white small border-top border-light border-opacity-25 pt-2">
+                        <i class="bi bi-box-arrow-up-left"></i> اضغط للتفاصيل
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- 3. مُقدّمة -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card fancy-kpi-card bg-gradient-purple h-100">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-white-50 mb-1 fw-bold">فواتير مُقدّمة</h6>
+                        <h3 class="mb-0 fw-bolder fs-2">{{ stats.submitted }}</h3>
+                    </div>
+                    <div class="fancy-icon"><i class="bi bi-send-check"></i></div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card kpi-card kpi-info border-0 shadow-sm">
-            <div class="card-body">
-                <div class="text-white-50 small">📤 مُقدّمة</div>
-                <h3 class="mb-0 text-white fw-bold">{{ stats.submitted }}</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card kpi-card kpi-success border-0 shadow-sm">
-            <div class="card-body">
-                <div class="text-white-50 small">✅ مدفوعة</div>
-                <h3 class="mb-0 text-white fw-bold">{{ stats.paid }}</h3>
+
+    <!-- 4. مدفوعة -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card fancy-kpi-card bg-gradient-green h-100">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-white-50 mb-1 fw-bold">فواتير مدفوعة</h6>
+                        <h3 class="mb-0 fw-bolder fs-2">{{ stats.paid }}</h3>
+                    </div>
+                    <div class="fancy-icon"><i class="bi bi-check-circle"></i></div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- فلترة -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-body">
-        <form method="GET" class="row g-2 align-items-end">
-            <div class="col-md-4">
-                <label class="form-label small fw-bold">بحث</label>
-                <input type="text" name="q" value="{{ q }}" class="form-control"
-                       placeholder="رقم الفاتورة، اسم العميل...">
+<!-- ═══════════ الفلترة والبحث ═══════════ -->
+<div class="card shadow-sm border-0 mb-4" style="border-radius: 15px;">
+    <div class="card-body p-3">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small fw-bold text-muted">بحث</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" value="{{ q }}" class="form-control border-start-0 bg-light"
+                           placeholder="رقم الفاتورة، اسم العميل...">
+                </div>
             </div>
             <div class="col-md-3">
-                <label class="form-label small fw-bold">النوع</label>
-                <select name="type" class="form-select">
+                <label class="form-label small fw-bold text-muted">النوع</label>
+                <select name="type" class="form-select bg-light">
                     <option value="">— الكل —</option>
-                    <option value="supplier" {{ 'selected' if type_filter == 'supplier' }}>مورد</option>
-                    <option value="customer" {{ 'selected' if type_filter == 'customer' }}>عميل</option>
+                    <option value="supplier" {{ 'selected' if type_filter == 'supplier' }}>فواتير موردين</option>
+                    <option value="customer" {{ 'selected' if type_filter == 'customer' }}>فواتير عملاء</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <label class="form-label small fw-bold">الحالة</label>
-                <select name="status" class="form-select">
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted">الحالة</label>
+                <select name="status" class="form-select bg-light">
                     <option value="">— الكل —</option>
                     <option value="draft" {{ 'selected' if status_filter == 'draft' }}>مسودة</option>
                     <option value="submitted" {{ 'selected' if status_filter == 'submitted' }}>مُقدّمة</option>
                     <option value="approved" {{ 'selected' if status_filter == 'approved' }}>معتمدة</option>
                     <option value="paid" {{ 'selected' if status_filter == 'paid' }}>مدفوعة</option>
-                    <option value="disputed" {{ 'selected' if status_filter == 'disputed' }}>متنازع عليها</option>
                 </select>
             </div>
             <div class="col-md-2 d-flex gap-2">
-                <button class="btn btn-primary flex-fill"><i class="bi bi-search"></i></button>
-                <a href="{{ url_for('invoices.list_invoices') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-x-lg"></i>
+                <button class="btn btn-primary w-100 fw-bold"><i class="bi bi-funnel"></i> تصفية</button>
+                <a href="{{ url_for('invoices.list_invoices') }}" class="btn btn-outline-secondary" title="مسح البحث">
+                    <i class="bi bi-arrow-counterclockwise"></i>
                 </a>
             </div>
         </form>
     </div>
 </div>
 
-<!-- الجدول -->
-<div class="card shadow-sm border-0">
+<!-- ═══════════ الجدول ═══════════ -->
+<div class="card shadow-sm border-0" style="border-radius: 15px; overflow: hidden;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-dark">
+        <table class="table table-custom align-middle mb-0">
+            <thead class="bg-light">
                 <tr>
-                    <th class="text-center" style="width: 60px;">#</th>
-                    <th>رقم الفاتورة</th>
-                    <th class="text-center">النوع</th>
-                    <th>المورد / العميل</th>
-                    <th class="text-center">الإصدار</th>
-                    <th class="text-end">قبل الضريبة</th>
-                    <th class="text-end">الضريبة</th>
-                    <th class="text-end">الإجمالي</th>
-                    <th class="text-center">الحالة</th>
-                    <th class="text-center" style="width: 130px;">إجراءات</th>
+                    <th class="text-center py-3" style="width: 60px;">#</th>
+                    <th class="py-3">رقم الفاتورة</th>
+                    <th class="text-center py-3">النوع</th>
+                    <th class="py-3">المورد / العميل</th>
+                    <th class="text-center py-3">تاريخ الإصدار</th>
+                    <th class="text-end py-3">المبلغ الأساسي</th>
+                    <th class="text-end py-3">الضريبة</th>
+                    <th class="text-end py-3">الإجمالي</th>
+                    <th class="text-center py-3">الحالة</th>
+                    <th class="text-center py-3" style="width: 130px;">إجراءات</th>
                 </tr>
             </thead>
             <tbody>
-                                {% for inv in invoices %}
+                {% for inv in invoices %}
                 <tr class="{% if inv.mission_id in duplicate_missions %}table-warning{% endif %}">
-                    <td class="text-center">{{ inv.id }}</td>
+                    <td class="text-center text-muted">{{ loop.index }}</td>
                     <td>
-                        <a href="{{ url_for('invoices.view_invoice', iid=inv.id) }}"
-                           class="text-decoration-none">
-                            <code class="text-primary fw-bold">{{ inv.invoice_number }}</code>
+                        <a href="{{ url_for('invoices.view_invoice', iid=inv.id) }}" class="text-decoration-none">
+                            <code class="text-primary fw-bold fs-6">{{ inv.invoice_number }}</code>
                         </a>
                     </td>
                     <td class="text-center">
-                        <span class="badge bg-{{ inv.type_color() }}">
+                        <span class="badge bg-{{ inv.type_color() }} rounded-pill px-3">
                             {{ inv.type_label() }}
                         </span>
                     </td>
                     <td>
                         {% if inv.invoice_type == 'supplier' and inv.supplier %}
-                            {{ inv.supplier.company_name_ar }}
+                            <span class="fw-bold text-dark">{{ inv.supplier.company_name_ar }}</span>
                         {% elif inv.invoice_type == 'customer' and inv.customer_name %}
-                            {{ inv.customer_name }}
+                            <span class="fw-bold text-dark">{{ inv.customer_name }}</span>
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
                     <td class="text-center">
-                        <small>{{ inv.issue_date.strftime('%Y-%m-%d') if inv.issue_date else '—' }}</small>
+                        <span class="text-muted small"><i class="bi bi-calendar3"></i> {{ inv.issue_date.strftime('%Y-%m-%d') if inv.issue_date else '—' }}</span>
                     </td>
-                    <td class="text-end">{{ "{:,.2f}".format(inv.amount or 0) }}</td>
-                    <td class="text-end text-warning">
-                        {{ "{:,.2f}".format(inv.vat_amount or 0) }}
-                    </td>
-                    <td class="text-end fw-bold text-success">
+                    <td class="text-end text-muted">{{ "{:,.2f}".format(inv.amount or 0) }}</td>
+                    <td class="text-end text-warning fw-bold">{{ "{:,.2f}".format(inv.vat_amount or 0) }}</td>
+                    <td class="text-end fw-bold text-success fs-6">
                         {{ "{:,.2f}".format(inv.total_amount or 0) }}
                     </td>
                     <td class="text-center">
-                        <span class="badge bg-{{ inv.status_color() }}">
+                        <span class="badge bg-{{ inv.status_color() }} rounded-pill px-3 py-2">
                             {{ inv.status_label() }}
                         </span>
                     </td>
                     <td class="text-center" style="white-space: nowrap;">
                         <a href="{{ url_for('invoices.view_invoice', iid=inv.id) }}"
-                           class="btn btn-sm btn-info btn-icon-only" title="عرض">
+                           class="btn btn-sm btn-info btn-icon-only shadow-sm" title="عرض">
                             <i class="bi bi-eye"></i>
                         </a>
                         {% if has_permission('invoices.edit') and inv.status != 'paid' %}
                         <a href="{{ url_for('invoices.edit_invoice', iid=inv.id) }}"
-                           class="btn btn-sm btn-warning btn-icon-only" title="تعديل">
+                           class="btn btn-sm btn-warning btn-icon-only shadow-sm" title="تعديل">
                             <i class="bi bi-pencil"></i>
                         </a>
                         {% endif %}
                         {% if has_permission('invoices.delete') and inv.status != 'paid' %}
-                        <form method="POST"
-                              action="{{ url_for('invoices.delete_invoice', iid=inv.id) }}"
-                              class="d-inline"
+                        <form method="POST" action="{{ url_for('invoices.delete_invoice', iid=inv.id) }}" class="d-inline"
                               onsubmit="return confirm('حذف الفاتورة {{ inv.invoice_number }}؟');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button class="btn btn-sm btn-danger btn-icon-only" title="حذف">
+                            <button class="btn btn-sm btn-danger btn-icon-only shadow-sm" title="حذف">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </form>
@@ -221,8 +295,11 @@
                 {% else %}
                 <tr>
                     <td colspan="10" class="text-center text-muted py-5">
-                        <i class="bi bi-receipt fs-2 d-block mb-2"></i>
-                        لا توجد فواتير بعد
+                        <div class="mb-3">
+                            <i class="bi bi-receipt fs-1 text-secondary opacity-50"></i>
+                        </div>
+                        <h5 class="fw-bold">لا توجد فواتير بعد</h5>
+                        <p class="small text-muted">قم بإنشاء فاتورة جديدة أو رفع إحدى الفواتير لتظهر هنا.</p>
                     </td>
                 </tr>
                 {% endfor %}

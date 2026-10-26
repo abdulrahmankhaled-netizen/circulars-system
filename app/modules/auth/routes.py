@@ -1,5 +1,6 @@
 """مسارات المصادقة."""
 from datetime import datetime
+from urllib.parse import urlparse
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 
@@ -34,8 +35,12 @@ def login():
         login_user(user, remember=form.remember.data)
         flash(f"👋 مرحباً {user.full_name}", "success")
 
+        # الحماية من التوجيه الخبيث (Open Redirect)
         next_url = request.args.get("next")
-        return redirect(next_url or url_for("dashboard.index"))
+        if not next_url or urlparse(next_url).netloc != "":
+            next_url = url_for("dashboard.index")
+        
+        return redirect(next_url)
 
     return render_template("auth/login.html", form=form)
 

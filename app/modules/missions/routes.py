@@ -119,36 +119,68 @@ def _detect_equipment_key(text):
 
     return None
 
-
 # ==================================================================
 #  Equipment Cost
 # ==================================================================
-def _get_equipment_cost(contract_id, equipment_key):
-    """يجلب سعر المورد من EquipmentPrice."""
+# ==================================================================
+#  Equipment Cost
+# ==================================================================
+def _get_equipment_cost(contract_id, equipment_key, mission_date=None, current_mission_id=None):
+    """يجلب سعر المورد من العقد. يوزع التكلفة الشهرية إذا لزم الأمر."""
+    from app.modules.contracts.models import Contract, ContractEquipment
     from app.modules.equipment.models import EquipmentPrice
-
+    
     contract = db.session.get(Contract, contract_id)
     if not contract:
         return 0.0
 
+    # 1. البحث في العقد
+    contract_equip = ContractEquipment.query.filter_by(
+        contract_id=contract_id,
+        equipment_key=equipment_key
+    ).first()
+    
+    if contract_equip and contract_equip.unit_price > 0:
+        if contract_equip.pricing_period == 'per_mission':
+            return float(contract_equip.unit_price)
+        elif contract_equip.pricing_period in ['monthly', 'annual']:
+            if mission_date:
+                # حساب بداية ونهاية الشهر
+                month_start = mission_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                if month_start.month == 12:
+                    next_month = month_start.replace(year=month_start.year + 1, month=1)
+                else:
+                    next_month = month_start.replace(month=month_start.month + 1)
+
+                # عدد المهام الحالية في نفس الشهر لنفس المعدة
+                query = Mission.query.filter(
+                    Mission.contract_id == contract_id,
+                    Mission.equipment_key == equipment_key,
+                    Mission.mission_date >= month_start,
+                    Mission.mission_date < next_month
+                )
+                
+                # إذا كنا نعدل مهمة موجودة، نستثنيها من العدد
+                if current_mission_id:
+                    query = query.filter(Mission.id != current_mission_id)
+                
+                count = query.count()
+                
+                monthly_rate = (contract_equip.quantity or 1) * (contract_equip.unit_price or 0)
+                if contract_equip.pricing_period == 'annual':
+                    monthly_rate /= 12
+                    
+                return monthly_rate / (count + 1)
+            return 0.0
+
+    # 2. إذا لم يوجد في العقد، نبحث في قائمة أسعار المورد العامة (تُحسب لكل مهمة)
     price = EquipmentPrice.query.filter_by(
         supplier_id=contract.supplier_id,
         equipment_key=equipment_key,
         is_active=True,
     ).first()
 
-    return float(price.unit_price) if price else 0.0
-
-
-def _apply_cost_from_price(mission):
-    cost = _get_equipment_cost(mission.contract_id, mission.equipment_key)
-    if cost > 0:
-        mission.cost = cost
-        mission.recalculate_financials()
-    return cost
-
-
-# ==================================================================
+    return float(price.unit_price) if price else 0.0# ==================================================================
 #  Excel Helpers
 # ==================================================================
 def _parse_excel_date(value):
@@ -244,22 +276,24 @@ def list_missions():
     missions = query.order_by(Mission.mission_date.desc()).all()
 
     # إحصائيات
-    from sqlalchemy import func
-    total_cost = db.session.query(func.coalesce(func.sum(Mission.cost), 0)).scalar()
-    total_revenue = db.session.query(func.coalesce(func.sum(Mission.revenue), 0)).scalar()
-    total_profit = db.session.query(func.coalesce(func.sum(Mission.profit), 0)).scalar()
+      # ⭐ الحسبة العبقرية: حساب الإحصائيات بناءً على المهام المفلترة فقط ⭐
+    # (المتغير missions يحتوي فقط على المهام التي ظهرت بعد الفلترة)
+    
+    total_cost = sum(m.cost or 0 for m in missions)
+    total_revenue = sum(m.revenue or 0 for m in missions)
+    total_profit = sum(m.profit or 0 for m in missions)
 
     stats = {
-        "total": Mission.query.count(),
-        "draft": Mission.query.filter_by(status="draft").count(),
-        "assigned": Mission.query.filter_by(status="assigned").count(),
-        "in_progress": Mission.query.filter_by(status="in_progress").count(),
-        "completed": Mission.query.filter_by(status="completed").count(),
-        "verified": Mission.query.filter_by(status="verified").count(),
-        "paid": Mission.query.filter_by(status="paid").count(),
-        "total_cost": float(total_cost or 0),
-        "total_revenue": float(total_revenue or 0),
-        "total_profit": float(total_profit or 0),
+        "total": len(missions), # ⭐ عدد المهام المفلترة
+        "draft": sum(1 for m in missions if m.status == "draft"),
+        "assigned": sum(1 for m in missions if m.status == "assigned"),
+        "in_progress": sum(1 for m in missions if m.status == "in_progress"),
+        "completed": sum(1 for m in missions if m.status == "completed"),
+        "verified": sum(1 for m in missions if m.status == "verified"),
+        "paid": sum(1 for m in missions if m.status == "paid"),
+        "total_cost": float(total_cost),
+        "total_revenue": float(total_revenue),
+        "total_profit": float(total_profit),
     }
 
     contracts = Contract.query.order_by(Contract.contract_number).all()
@@ -626,61 +660,85 @@ def recalculate_costs():
         flash("متاح لمدير النظام فقط", "danger")
         return redirect(url_for("missions.list_missions"))
 
+    from app.modules.contracts.models import ContractEquipment
+    from app.modules.equipment.models import EquipmentPrice
+    from collections import defaultdict
+
     missions = Mission.query.all()
     updated = 0
-    no_price = 0
-
+    groups = defaultdict(list)
+    
     for m in missions:
-        cost = _get_equipment_cost(m.contract_id, m.equipment_key)
-        if cost > 0:
-            if m.cost != cost:
-                m.cost = cost
+        contract = m.contract
+        if not contract:
+            continue
+
+        # 1. البحث عن المعدة بالمفتاح (Key) أولاً
+        contract_equip = ContractEquipment.query.filter_by(
+            contract_id=m.contract_id, 
+            equipment_key=m.equipment_key
+        ).first()
+
+        # 2. إذا لم يجدها، يبحث بالاسم العربي أو الإنجليزي
+        if not contract_equip:
+            m_name_ar = m.equipment_name_ar()
+            m_name_en = m.equipment_name_en()
+            for ce in contract.equipment_items:
+                if (ce.equipment_name_ar() == m_name_ar) or (m_name_en and ce.equipment_name_en() == m_name_en):
+                    contract_equip = ce
+                    break
+
+        # 3. الحساب بناءً على ما وجده
+        if contract_equip:
+            if contract_equip.pricing_period == 'per_mission':
+                m.cost = contract_equip.unit_price
                 m.recalculate_financials()
                 updated += 1
+            else:
+                if m.mission_date:
+                    month_key = m.mission_date.strftime('%Y-%m')
+                    groups[(m.contract_id, contract_equip.equipment_key, month_key)].append(m)
         else:
-            no_price += 1
+            # البحث في قائمة أسعار المورد العامة
+            price = EquipmentPrice.query.filter_by(
+                supplier_id=contract.supplier_id, 
+                equipment_key=m.equipment_key, 
+                is_active=True
+            ).first()
+            if price and price.unit_price > 0:
+                m.cost = price.unit_price
+                m.recalculate_financials()
+                updated += 1
+
+    # توزيع التكاليف الشهرية (إذا وجدت)
+    for (cid, eq_key, month_key), group_missions in groups.items():
+        contract_equip = ContractEquipment.query.filter_by(
+            contract_id=cid, 
+            equipment_key=eq_key
+        ).first()
+        
+        if contract_equip and contract_equip.pricing_period in ['monthly', 'annual']:
+            monthly_cost = (contract_equip.quantity or 1) * (contract_equip.unit_price or 0)
+            if contract_equip.pricing_period == 'annual':
+                monthly_cost /= 12
+                
+            cost_per_mission = monthly_cost / len(group_missions)
+            
+            for m in group_missions:
+                m.cost = cost_per_mission
+                m.recalculate_financials()
+                updated += 1
 
     db.session.commit()
-
-    msg = f"تم تحديث {updated} مهمة"
-    if no_price:
-        msg += f" - بدون سعر في النظام: {no_price}"
-    flash(msg, "success")
-    return redirect(url_for("missions.list_missions"))
-
-
-@bp.route("/<int:mid>/recalculate-cost", methods=["POST"])
-@login_required
-@require_permission("missions.edit")
-def recalculate_one_cost(mid):
-    m = db.session.get(Mission, mid)
-    if not m:
-        abort(404)
-
-    cost = _get_equipment_cost(m.contract_id, m.equipment_key)
-    if cost > 0:
-        m.cost = cost
-        m.recalculate_financials()
-        db.session.commit()
-        flash(f"تم تحديث التكلفة إلى {cost:,.2f} AED", "success")
-    else:
-        flash(
-            "لا يوجد سعر لهذه المعدة في EquipmentPrice للمورد المحدد. "
-            "أضف السعر أولاً من صفحة المعدات.",
-            "warning"
-        )
-
-    return redirect(url_for("missions.view_mission", mid=mid))
-
-
-# ==================================================================
+    flash(f"✅ تم إعادة حساب {updated} مهمة بنجاح. (تم مطابقة الأسماء بذكاء).", "success")
+    return redirect(url_for("missions.list_missions"))# ==================================================================
 #  Excel Upload
 # ==================================================================
 @bp.route("/upload", methods=["GET", "POST"])
 @login_required
 @require_permission("missions.create")
 def upload_excel():
-    contracts = Contract.query.order_by(Contract.contract_number).all()
+    contracts = Contract.query.order_by(Contract.status.desc(), Contract.project_name, Contract.contract_number).all()
 
     if request.method == "POST":
         file = request.files.get("excel_file")
@@ -703,12 +761,14 @@ def upload_excel():
             flash("⚠️ يجب اختيار العقد أولاً", "warning")
             return redirect(url_for("missions.upload_excel"))
 
+        default_contract = db.session.get(Contract, default_cid)
+        contract_equips = default_contract.equipment_items if default_contract else []
+
         try:
             from openpyxl import load_workbook
             wb = load_workbook(file, data_only=True)
             ws = wb.active
 
-            # ═══════════ البحث عن صف الرؤوس ═══════════
             headers_row = None
             for r in range(1, 6):
                 row_vals = [cell.value for cell in ws[r]]
@@ -788,7 +848,6 @@ def upload_excel():
 
                 job_id_str = str(job_id).strip()
 
-                # ⭐ البحث عن المهمة بـ Job Order أو Job ID أو الرقم القديم
                 existing = Mission.query.filter(
                     db.or_(
                         Mission.job_order_id == job_id_str,
@@ -804,7 +863,27 @@ def upload_excel():
                 actual_rec = g("actual_rec")
                 requested_rec = g("requested_rec")
                 rec_type = actual_rec or requested_rec
-                equipment_key = _detect_equipment_key(rec_type) or "flatbed_6"
+                
+                equipment_key = None
+                rec_type_str = str(rec_type or "").strip().lower()
+                
+                if contract_equips and rec_type_str:
+                    for c_eq in contract_equips:
+                        eq_name_en = (c_eq.equipment_name_en() or "").lower()
+                        eq_name_ar = (c_eq.equipment_name_ar() or "").lower()
+                        
+                        if eq_name_en and eq_name_en in rec_type_str:
+                            equipment_key = c_eq.equipment_key
+                            break
+                        if eq_name_ar and eq_name_ar in rec_type_str:
+                            equipment_key = c_eq.equipment_key
+                            break
+                        if "mobile crane" in rec_type_str and "mobile crane" in eq_name_en:
+                            equipment_key = c_eq.equipment_key
+                            break
+
+                if not equipment_key:
+                    equipment_key = _detect_equipment_key(rec_type) or "flatbed_6"
 
                 detected[str(rec_type)] = equipment_key
 
@@ -816,13 +895,12 @@ def upload_excel():
                     m = existing
                 else:
                     m = Mission(
-                        mission_number=generate_mission_number(), # ⭐ رقم مميز للنظام
+                        mission_number=generate_mission_number(),
                         contract_id=default_cid,
                         created_by_id=current_user.id,
                     )
                     db.session.add(m)
 
-                # ⭐ تعبئة الحقول: Job Id يذهب لحقل job_order_id
                 m.job_id_external = job_id_str
                 m.job_order_id = job_id_str 
                 m.contract_id = default_cid
@@ -868,7 +946,9 @@ def upload_excel():
                     m.qr_code = str(qr_val).strip()
 
                 m.revenue = amount
-                cost_from_price = _get_equipment_cost(m.contract_id, equipment_key)
+                
+                cost_from_price = _get_equipment_cost(m.contract_id, equipment_key, m.mission_date)
+                
                 if cost_from_price > 0:
                     m.cost = cost_from_price
                 elif not m.cost:
@@ -910,8 +990,6 @@ def upload_excel():
         "missions/upload.html",
         contracts=contracts,
     )
-
-
 # ==================================================================
 #  Download Template
 # ==================================================================
@@ -981,3 +1059,248 @@ def download_template():
         as_attachment=True,
         download_name=f"missions_template_{datetime.utcnow().strftime('%Y%m%d')}.xlsx",
     )
+# ==================================================================
+#  Payment Follow-up (متابعة الدفع)
+# ==================================================================
+@bp.route("/followup")
+@login_required
+@require_permission("missions.view")
+def followup_list():
+    """صفحة متابعة المركبات المعلقة."""
+    status_filter = request.args.get("status", "").strip()
+    
+    query = Mission.query
+    if status_filter:
+        query = query.filter(Mission.followup_status == status_filter)
+    
+    missions = query.order_by(Mission.mission_date.desc()).all()
+
+    # إحصائيات البابلز
+    stats = {
+        "pending": Mission.query.filter_by(followup_status="pending").count(),
+        "circular": Mission.query.filter_by(followup_status="circular").count(),
+        "paid": Mission.query.filter_by(followup_status="paid").count(),
+    }
+
+    return render_template("missions/followup.html", missions=missions, stats=stats, status_filter=status_filter)
+
+
+@bp.route("/followup/<int:mid>/update", methods=["POST"])
+@login_required
+@require_permission("missions.edit")
+def followup_update(mid):
+    """تحديث حالة المتابعة للمركبة."""
+    m = db.session.get(Mission, mid)
+    if not m:
+        abort(404)
+    
+    new_status = request.form.get("followup_status")
+    if new_status in ["pending", "circular", "paid"]:
+        m.followup_status = new_status
+        db.session.commit()
+        flash(f"✅ تم تحديث حالة المهمة {m.mission_number} إلى {new_status}", "success")
+    
+    return redirect(url_for("missions.followup_list"))
+# ==================================================================
+#  تحديث جماعي (تغيير حالة المهام إلى مدفوعة)
+# ==================================================================
+@bp.route("/bulk-mark-paid", methods=["POST"])
+@login_required
+@require_permission("missions.edit")
+def bulk_mark_paid():
+    # 1. استلام النص الذي قمت بلصقه
+    text = request.form.get("mission_ids_text", "").strip()
+    if not text:
+        flash("⚠️ الرجاء لصق أرقام المهام أولاً", "warning")
+        return redirect(url_for("missions.list_missions"))
+
+    # 2. فصل الأرقام عن بعضها (سواء كانت مفصولة بمسافة أو سطر جديد)
+    import re
+    raw_ids = re.split(r'[\n,\t\s]+', text)
+    search_ids = [i.strip() for i in raw_ids if i.strip()]
+
+    if not search_ids:
+        flash("⚠️ لم يتم العثور على أرقام صالحة", "warning")
+        return redirect(url_for("missions.list_missions"))
+
+    # 3. البحث في قاعدة البيانات عن هذه الأرقام
+    missions = Mission.query.filter(
+        db.or_(
+            Mission.mission_number.in_(search_ids),
+            Mission.job_order_id.in_(search_ids),
+            Mission.job_id_external.in_(search_ids)
+        )
+    ).all()
+
+    if not missions:
+        flash("❌ لم يتم العثور على أي مهام مطابقة للأرقام المدخلة.", "danger")
+        return redirect(url_for("missions.upload_excel"))
+
+    # 4. تغيير حالتها إلى مدفوعة
+    updated_count = 0
+    for m in missions:
+        m.supplier_payment_status = "paid"
+        m.customer_invoice_status = "paid"
+        m.followup_status = "paid"
+        updated_count += 1
+
+    db.session.commit()
+
+    flash(f"✅ تم تحديث حالة {updated_count} مهمة إلى 'مدفوعة' بنجاح.", "success")
+    return redirect(url_for("missions.list_missions"))
+# ==================================================================
+#  تصدير متابعة الدفع إلى Excel
+# ==================================================================
+# ==================================================================
+#  تصدير متابعة الدفع إلى Excel (مُحدث ليشمل السعر)
+# ==================================================================
+@bp.route("/followup/export")
+@login_required
+@require_permission("missions.view")
+def export_followup_excel():
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from flask import send_file
+    import io
+
+    status_filter = request.args.get("status", "").strip()
+    query = Mission.query
+    if status_filter:
+        query = query.filter(Mission.followup_status == status_filter)
+    missions = query.order_by(Mission.mission_date.desc()).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "متابعة الدفع"
+    ws.sheet_view.rightToLeft = True
+
+    # ⭐ أضفنا عمود "المبلغ المطلوب من العميل"
+    headers = [
+        "رقم المهمة", 
+        "Job Order", 
+        "اللوحة", 
+        "المعدة", 
+        "التاريخ", 
+        "المبلغ المطلوب من العميل (AED)", 
+        "حالة الدفع (اختر من القائمة)"
+    ]
+    
+    hfont = Font(bold=True, color="FFFFFF")
+    hfill = PatternFill("solid", fgColor="1F4E78")
+    center = Alignment(horizontal="center")
+
+    for idx, h in enumerate(headers, 1):
+        c = ws.cell(row=1, column=idx, value=h)
+        c.font = hfont
+        c.fill = hfill
+        c.alignment = center
+
+    # تحويل الحالات إلى نصوص عربية
+    status_labels = {
+        "pending": "معلق بانتظار الدفع", 
+        "circular": "تم رفع تعميم", 
+        "paid": "تم الدفع"
+    }
+
+    for i, m in enumerate(missions, 2):
+        ws.cell(row=i, column=1, value=m.mission_number)
+        ws.cell(row=i, column=2, value=m.job_order_id or m.job_id_external or "")
+        ws.cell(row=i, column=3, value=m.vehicle_plate or "")
+        ws.cell(row=i, column=4, value=m.equipment_name_ar())
+        ws.cell(row=i, column=5, value=m.mission_date.strftime("%Y-%m-%d") if m.mission_date else "")
+        
+        # ⭐ إضافة قيمة الإيراد (المبلغ المطلوب من العميل)
+        ws.cell(row=i, column=6, value=m.revenue or 0)
+        
+        ws.cell(row=i, column=7, value=status_labels.get(m.followup_status, m.followup_status))
+
+    # إضافة قائمة منسدلة في الإكسل لحقل الحالة (العمود G الآن بدلاً من F)
+    dv = DataValidation(type="list", formula1='"معلق بانتظار الدفع,تم رفع تعميم,تم الدفع"', allow_blank=False)
+    ws.add_data_validation(dv)
+    dv.add(f"G2:G{len(missions)+1}")
+
+    # ضبط عرض الأعمدة لتكون واضحة
+    widths = [20, 20, 15, 25, 15, 25, 25]
+    for idx, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(idx)].width = w
+
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+
+    return send_file(
+        bio,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="followup_missions.xlsx"
+    )
+# ==================================================================
+#  استيراد وتحديث متابعة الدفع من Excel
+# ==================================================================
+@bp.route("/followup/import", methods=["POST"])
+@login_required
+@require_permission("missions.edit")
+def import_followup_excel():
+    file = request.files.get("excel_file")
+    if not file or not file.filename:
+        flash("⚠️ الرجاء اختيار ملف Excel أولاً", "warning")
+        return redirect(url_for("missions.followup_list"))
+
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(file, data_only=True)
+        ws = wb.active
+
+        # قراءة العناوين لمعرفة ترتيب الأعمدة
+        headers = [str(cell.value).strip() if cell.value else "" for cell in ws[1]]
+        col_mission = None
+        col_job = None
+        col_status = None
+
+        for idx, h in enumerate(headers):
+            if "رقم المهمة" in h: col_mission = idx
+            if "Job Order" in h: col_job = idx
+            if "حالة الدفع" in h: col_status = idx
+
+        if col_status is None:
+            flash("❌ لم يتم العثور على عمود (حالة الدفع) في الملف.", "danger")
+            return redirect(url_for("missions.followup_list"))
+
+        updated = 0
+        # تحويل النص العربي إلى الحالة في قاعدة البيانات
+        reverse_labels = {
+            "معلق بانتظار الدفع": "pending", "معلق": "pending",
+            "تم رفع تعميم": "circular", "رفع تعميم": "circular",
+            "تم الدفع": "paid", "مدفوع": "paid"
+        }
+
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not any(row): continue
+            
+            status_val = str(row[col_status]).strip() if col_status is not None and col_status < len(row) else ""
+            if not status_val: continue
+
+            new_status = reverse_labels.get(status_val)
+            if not new_status: continue
+
+            # البحث عن المهمة (سواء برقمها أو رقم أمر العمل)
+            m = None
+            if col_mission is not None and col_mission < len(row) and row[col_mission]:
+                m = Mission.query.filter_by(mission_number=str(row[col_mission]).strip()).first()
+            
+            if not m and col_job is not None and col_job < len(row) and row[col_job]:
+                m = Mission.query.filter_by(job_order_id=str(row[col_job]).strip()).first()
+
+            if m:
+                m.followup_status = new_status
+                updated += 1
+        
+        db.session.commit()
+        flash(f"✅ تم تحديث حالة {updated} مهمة بنجاح من الملف!", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"❌ حدث خطأ أثناء قراءة الملف: {e}", "danger")
+
+    return redirect(url_for("missions.followup_list"))

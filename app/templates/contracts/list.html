@@ -9,12 +9,14 @@
         <span class="badge bg-secondary">{{ contracts|length }}</span>
     </h3>
     {% if has_permission('contracts.create') %}
-    <a href="{{ url_for('contracts.compare_all_contracts') }}" class="btn btn-info text-white">
-        <i class="bi bi-bar-chart-line"></i> مقارنة كل العقود
-    </a>
-    <a href="{{ url_for('contracts.add_contract') }}" class="btn btn-primary">
-        <i class="bi bi-plus-lg"></i> عقد جديد
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('contracts.compare_all_contracts') }}" class="btn btn-info text-white">
+            <i class="bi bi-bar-chart-line"></i> مقارنة كل العقود
+        </a>
+        <a href="{{ url_for('contracts.add_contract') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> عقد جديد
+        </a>
+    </div>
     {% endif %}
 </div>
 
@@ -29,29 +31,30 @@
         </div>
     </div>
     <div class="col-md-3">
+        <div class="card kpi-card kpi-info border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-white-50 small">إجمالي الآليات</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.total_equipments }}</h3>
+                <small class="text-white-50">مشمولة بالعقود</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="card kpi-card kpi-success border-0 shadow-sm">
             <div class="card-body">
-                <div class="text-white-50 small">نشطة</div>
-                <h3 class="mb-0 text-white fw-bold">{{ stats.active }}</h3>
+                <div class="text-white-50 small">إجمالي المبالغ</div>
+                <h3 class="mb-0 text-white fw-bold">
+                    {{ "{:,.0f}".format(stats.total_value) }}
+                </h3>
+                <small class="text-white-50">AED</small>
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card kpi-card kpi-warning border-0 shadow-sm">
             <div class="card-body">
-                <div class="text-white-50 small">بانتظار التوقيع</div>
-                <h3 class="mb-0 text-white fw-bold">{{ stats.pending_signature }}</h3>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card kpi-card kpi-info border-0 shadow-sm">
-            <div class="card-body">
-                <div class="text-white-50 small">إجمالي القيمة النشطة</div>
-                <h3 class="mb-0 text-white fw-bold">
-                    {{ "{:,.0f}".format(stats.total_value) }}
-                </h3>
-                <small class="text-white-50">AED</small>
+                <div class="text-white-50 small">العقود النشطة</div>
+                <h3 class="mb-0 text-white fw-bold">{{ stats.active }}</h3>
             </div>
         </div>
     </div>
@@ -64,7 +67,7 @@
             <div class="col-md-4">
                 <label class="form-label small fw-bold">بحث</label>
                 <input type="text" name="q" value="{{ q }}" class="form-control"
-                       placeholder="رقم العقد، الجهة، المنطقة...">
+                       placeholder="رقم العقد، اسم المشروع، الجهة، المنطقة...">
             </div>
             <div class="col-md-3">
                 <label class="form-label small fw-bold">الحالة</label>
@@ -107,10 +110,11 @@
                 <tr>
                     <th class="text-center" style="width: 60px;">#</th>
                     <th>رقم العقد</th>
+                    <th>اسم المشروع</th>
                     <th>المورد</th>
                     <th>الجهة / المنطقة</th>
-                    <th class="text-center">الفترة</th>
-                    <th class="text-end">القيمة</th>
+                    <th class="text-center" style="min-width: 120px;">الفترة والمدة</th>
+                    <th class="text-end" style="min-width: 220px;">القيمة والآليات</th>
                     <th class="text-center">الحالة</th>
                     <th class="text-center" style="width: 140px;">إجراءات</th>
                 </tr>
@@ -126,6 +130,14 @@
                         </a>
                         {% if c.signed_document %}
                             <i class="bi bi-paperclip text-success ms-1" title="موقّع"></i>
+                        {% endif %}
+                    </td>
+                    <!-- ⭐ اسم المشروع هنا -->
+                    <td>
+                        {% if c.project_name %}
+                            <strong class="text-dark"><i class="bi bi-briefcase text-warning"></i> {{ c.project_name }}</strong>
+                        {% else %}
+                            <span class="text-muted">—</span>
                         {% endif %}
                     </td>
                     <td>
@@ -145,24 +157,53 @@
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
+                    <!-- ⭐ الفترة والمدة هنا -->
                     <td class="text-center">
                         {% if c.start_date and c.end_date %}
-                            <small>
-                                {{ c.start_date.strftime('%Y-%m-%d') }}
-                                <br>→
-                                {{ c.end_date.strftime('%Y-%m-%d') }}
+                            <small class="d-block text-muted" dir="ltr">
+                                {{ c.start_date.strftime('%Y-%m-%d') }} <br> → {{ c.end_date.strftime('%Y-%m-%d') }}
                             </small>
+                            <span class="badge bg-secondary mt-1" style="font-size: 0.7rem;">
+                                {{ c.duration_text }}
+                            </span>
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
                     <td class="text-end">
-                        <strong class="text-success">
-                            {{ "{:,.0f}".format(c.value or 0) }}
-                        </strong>
-                        <small class="text-muted d-block">
-                            {{ c.value_period_label() }}
-                        </small>
+                        <div class="d-flex flex-column align-items-end">
+                            <div class="mb-2 text-end">
+                                <span class="text-muted small d-block" style="font-size: 0.7rem;">القيمة الثابتة للعقد</span>
+                                <strong class="text-success fs-5">
+                                    {{ "{:,.0f}".format(c.calculated_value) }} <small>AED</small>
+                                </strong>
+                            </div>
+                            {% if c.equipment_items %}
+                            <div class="text-start w-100 border-top pt-1" style="font-size: 0.75rem;">
+                                {% for item in c.equipment_items %}
+                                <div class="d-flex justify-content-between align-items-center mb-1 bg-light p-1 px-2 rounded border {% if item.pricing_period == 'per_mission' %}opacity-75{% endif %}">
+                                    <span class="text-truncate fw-bold me-2" title="{{ item.equipment_name_ar() }}">
+                                        <i class="bi bi-truck text-secondary"></i> {{ item.equipment_name_ar() }}
+                                        <br>
+                                        <small class="text-muted" style="font-size: 0.65rem;">
+                                            {% if item.pricing_period == 'monthly' %}شهرياً
+                                            {% elif item.pricing_period == 'annual' %}سنوياً
+                                            {% elif item.pricing_period == 'per_mission' %}(لكل مهمة)
+                                            {% else %}غير محدد{% endif %}
+                                        </small>
+                                    </span>
+                                    <span class="text-nowrap text-muted">
+                                        <span class="badge bg-secondary" title="العدد">{{ item.quantity }}</span>
+                                        × 
+                                        <strong class="{% if item.pricing_period == 'per_mission' %}text-secondary{% else %}text-primary{% endif %}" title="السعر">
+                                            {{ "{:,.0f}".format(item.unit_price) }}
+                                        </strong>
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
                     </td>
                     <td class="text-center">
                         {{ c.status | state_badge('contract') | safe }}
@@ -193,14 +234,11 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-5">
+                    <td colspan="9" class="text-center text-muted py-5">
                         <i class="bi bi-file-earmark-x fs-2 d-block mb-2"></i>
                         لا توجد عقود بعد
                         {% if has_permission('contracts.create') %}
                             <br><a href="{{ url_for('contracts.add_contract') }}">أنشئ أول عقد</a>
-                            <br><small class="text-muted mt-2 d-block">
-                                أو اذهب للطلبات المعتمدة وأنشئ عقداً منها
-                            </small>
                         {% endif %}
                     </td>
                 </tr>

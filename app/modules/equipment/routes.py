@@ -370,19 +370,21 @@ def delete_type(tid):
     """حذف نوع معدة."""
     from app.modules.equipment.models import EquipmentType, EquipmentPrice
     from app.modules.missions.models import Mission
+    from app.modules.contracts.models import ContractEquipment
 
     t = db.session.get(EquipmentType, tid)
     if not t:
         abort(404)
 
-    # فحص الاستخدام
+    # فحص الاستخدام الشامل
     prices_count = EquipmentPrice.query.filter_by(equipment_key=t.key).count()
     missions_count = Mission.query.filter_by(equipment_key=t.key).count()
+    contracts_count = ContractEquipment.query.filter_by(equipment_key=t.key).count()
 
-    if prices_count > 0 or missions_count > 0:
+    if prices_count > 0 or missions_count > 0 or contracts_count > 0:
         flash(
             f"⚠️ لا يمكن حذف '{t.name_ar}' — مستخدم في "
-            f"{prices_count} سعر و {missions_count} مهمة. "
+            f"{prices_count} سعر، و {missions_count} مهمة، و {contracts_count} عقد. "
             f"عطّله بدل حذفه.",
             "warning"
         )

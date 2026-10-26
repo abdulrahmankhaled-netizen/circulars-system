@@ -10,6 +10,10 @@
     </h3>
     <div class="d-flex gap-2 flex-wrap">
         {% if current_user.is_admin and has_permission('missions.delete') %}
+        <!-- ⭐ زر التحديث الجماعي -->
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#bulkPaidModal">
+            <i class="bi bi-check2-all"></i> تحديث مدفوعات (لصق)
+        </button>
         <button type="button" id="bulkDeleteBtn"
                 class="btn btn-outline-danger"
                 onclick="bulkDelete()">
@@ -477,5 +481,38 @@ function bulkDelete() {
     form.submit();
 }
 </script>
+<!-- ═══════════ نافذة التحديث الجماعي (مدفوعة) ═══════════ -->
+<div class="modal fade" id="bulkPaidModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-success border-2">
+            <form method="POST" action="{{ url_for('missions.bulk_mark_paid') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-cash-coin"></i> تحديث جماعي (مدفوعة)
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body">
+                    <p class="text-muted small mb-2">
+                        انسخ الأرقام من ملف الإكسل (Job Order أو رقم المهمة) والصقها في المربع أدناه. سيتم تغيير حالتها إلى "مدفوعة" فوراً.
+                    </p>
+                    <textarea name="mission_ids_text" class="form-control form-control-lg" rows="8" 
+                              placeholder="الصق الأرقام هنا...&#10;JO-2026-1245&#10;MIS-2026-0001&#10;38569"></textarea>
+                </div>
+                
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success fw-bold px-4" 
+                            onclick="return confirm('هل أنت متأكد من تغيير حالة هذه المهام إلى مدفوعة؟');">
+                        <i class="bi bi-check-circle"></i> تطبيق التحديث
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

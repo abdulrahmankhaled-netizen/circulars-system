@@ -5,6 +5,8 @@ from flask import (
     flash, request, abort, current_app,
 )
 from flask_login import login_required, current_user
+from collections import Counter
+from sqlalchemy import func
 
 from app.extensions import db
 from app.core.permissions import require_permission
@@ -38,7 +40,7 @@ def generate_invoice_number(invoice_type="supplier") -> str:
 
 
 # ============================================================
-#  List
+#  List (عرض قائمة الفواتير)
 # ============================================================
 @bp.route("/")
 @login_required
@@ -65,19 +67,16 @@ def list_invoices():
 
     invoices = query.order_by(Invoice.created_at.desc()).all()
 
-    # ⭐ كشف المهام المكررة في الفواتير (بناءً على Job Order)
-    from collections import Counter
+    # ⭐ كشف المهام المكررة
     mission_ids = [inv.mission_id for inv in invoices if inv.mission_id]
     mission_counts = Counter(mission_ids)
     duplicate_missions = {mid for mid, count in mission_counts.items() if count > 1}
     
-    # تجميع الفواتير المكررة للتنبيه
     duplicates_info = []
     if duplicate_missions:
         for mid in duplicate_missions:
             dup_invoices = [inv for inv in invoices if inv.mission_id == mid]
             mission = dup_invoices[0].mission
-            # ⭐ استخدام الـ Job Order للعرض بدلاً من رقم المهمة
             job_ref = (mission.job_order_id or mission.job_id_external or mission.mission_number) if mission else f"#{mid}"
             inv_numbers = ", ".join([inv.invoice_number for inv in dup_invoices])
             duplicates_info.append({
@@ -86,13 +85,24 @@ def list_invoices():
                 "count": len(dup_invoices)
             })
 
-    from sqlalchemy import func
+    # الإحصائيات
     supplier_total = db.session.query(
         func.coalesce(func.sum(Invoice.total_amount), 0)
     ).filter(Invoice.invoice_type == "supplier").scalar()
-    customer_total = db.session.query(
+
+    # ⭐ إيرادات العملاء الذكية: (مجموع إيرادات المهام) + (فواتير العملاء اليدوية)
+    mission_revenue = db.session.query(
+        func.coalesce(func.sum(Mission.revenue), 0)
+    ).scalar()
+    
+    manual_customer_invoices = db.session.query(
         func.coalesce(func.sum(Invoice.total_amount), 0)
-    ).filter(Invoice.invoice_type == "customer").scalar()
+    ).filter(
+        Invoice.invoice_type == "customer",
+        Invoice.mission_id == None
+    ).scalar()
+
+    customer_total = float(mission_revenue or 0) + float(manual_customer_invoices or 0)
 
     stats = {
         "total": Invoice.query.count(),
@@ -101,7 +111,7 @@ def list_invoices():
         "approved": Invoice.query.filter_by(status="approved").count(),
         "paid": Invoice.query.filter_by(status="paid").count(),
         "supplier_total": float(supplier_total or 0),
-        "customer_total": float(customer_total or 0),
+        "customer_total": customer_total, # ⭐ الحسبة الجديدة
     }
 
     return render_template(
@@ -117,7 +127,10 @@ def list_invoices():
 
 
 # ============================================================
-#  Add
+#  Add (إضافة فاتورة جديدة)
+# ============================================================
+# ============================================================
+#  Add (إضافة فاتورة جديدة)
 # ============================================================
 @bp.route("/add", methods=["GET", "POST"])
 @login_required
@@ -132,8 +145,7 @@ def add_invoice():
         (c.id, f"{c.contract_number} — {c.supplier.company_name_ar}")
         for c in Contract.query.order_by(Contract.contract_number).all()
     ]
-    # ⭐ عرض الـ Job Order في القائمة المنسدلة
-    form.mission_id.choices = [(0, "— اختر المهمة —")] + [
+    form.mission_id.choices = [(0, "— بدون مهمة —")] + [
         (m.id, f"Job: {m.job_order_id or m.job_id_external or '—'} | {m.equipment_name_ar()}")
         for m in Mission.query.order_by(Mission.mission_number.desc()).limit(500).all()
     ]
@@ -154,16 +166,9 @@ def add_invoice():
                 form.customer_name.data = m.customer_name
 
     if form.validate_on_submit():
-        if form.mission_id.data == 0:
-            flash("⚠️ يجب اختيار مهمة مرتبطة بالفاتورة", "danger")
-            return render_template("invoices/form.html", form=form, title="فاتورة جديدة", invoice=None)
-
-        if Invoice.query.filter_by(
-            invoice_number=form.invoice_number.data.strip()
-        ).first():
+        if Invoice.query.filter_by(invoice_number=form.invoice_number.data.strip()).first():
             flash("رقم الفاتورة مستخدم مسبقاً", "danger")
-            return render_template("invoices/form.html", form=form,
-                                    title="فاتورة جديدة", invoice=None)
+            return render_template("invoices/form.html", form=form, title="فاتورة جديدة", invoice=None)
 
         inv = Invoice(
             invoice_number=form.invoice_number.data.strip(),
@@ -183,11 +188,12 @@ def add_invoice():
             created_by_id=current_user.id,
         )
 
-        if not inv.vat_amount or not inv.total_amount:
-            inv.calculate_totals(VAT_RATE)
+        # معالجة الضريبة (VAT) بشكل سليم
+        if form.vat_amount.data is not None:
+            inv.vat_amount = form.vat_amount.data
+            inv.total_amount = inv.amount + inv.vat_amount
         else:
-            if abs((inv.amount + inv.vat_amount) - inv.total_amount) > 0.01:
-                inv.calculate_totals(VAT_RATE)
+            inv.calculate_totals(VAT_RATE)
 
         if form.pdf_file.data:
             path = save_upload(
@@ -209,12 +215,12 @@ def add_invoice():
         flash(f"✅ تم إنشاء الفاتورة {inv.invoice_number}", "success")
         return redirect(url_for("invoices.view_invoice", iid=inv.id))
 
-    return render_template("invoices/form.html", form=form,
-                            title="فاتورة جديدة", invoice=None)
-
-
+    return render_template("invoices/form.html", form=form, title="فاتورة جديدة", invoice=None)
 # ============================================================
-#  Edit
+#  Edit (تعديل فاتورة)
+# ============================================================
+# ============================================================
+#  Edit (تعديل فاتورة)
 # ============================================================
 @bp.route("/<int:iid>/edit", methods=["GET", "POST"])
 @login_required
@@ -237,8 +243,7 @@ def edit_invoice(iid):
         (c.id, f"{c.contract_number} — {c.supplier.company_name_ar}")
         for c in Contract.query.order_by(Contract.contract_number).all()
     ]
-    # ⭐ عرض الـ Job Order في القائمة المنسدلة
-    form.mission_id.choices = [(0, "— اختر المهمة —")] + [
+    form.mission_id.choices = [(0, "— بدون مهمة —")] + [
         (m.id, f"Job: {m.job_order_id or m.job_id_external or '—'} | {m.equipment_name_ar()}")
         for m in Mission.query.order_by(Mission.mission_number.desc()).limit(500).all()
     ]
@@ -249,17 +254,10 @@ def edit_invoice(iid):
         form.mission_id.data = inv.mission_id or 0
 
     if form.validate_on_submit():
-        if form.mission_id.data == 0:
-            flash("⚠️ يجب اختيار مهمة مرتبطة بالفاتورة", "danger")
-            return render_template("invoices/form.html", form=form, title=f"تعديل: {inv.invoice_number}", invoice=inv)
-
-        existing = Invoice.query.filter_by(
-            invoice_number=form.invoice_number.data.strip()
-        ).first()
+        existing = Invoice.query.filter_by(invoice_number=form.invoice_number.data.strip()).first()
         if existing and existing.id != inv.id:
             flash("رقم الفاتورة مستخدم", "danger")
-            return render_template("invoices/form.html", form=form,
-                                    title=f"تعديل: {inv.invoice_number}", invoice=inv)
+            return render_template("invoices/form.html", form=form, title=f"تعديل: {inv.invoice_number}", invoice=inv)
 
         inv.invoice_number = form.invoice_number.data.strip()
         inv.invoice_type = form.invoice_type.data
@@ -274,11 +272,12 @@ def edit_invoice(iid):
         inv.status = form.status.data
         inv.notes = form.notes.data
 
-        if not form.vat_amount.data or not form.total_amount.data:
-            inv.calculate_totals(VAT_RATE)
-        else:
+        # معالجة الضريبة (VAT) بشكل سليم
+        if form.vat_amount.data is not None:
             inv.vat_amount = form.vat_amount.data
-            inv.total_amount = form.total_amount.data
+            inv.total_amount = inv.amount + inv.vat_amount
+        else:
+            inv.calculate_totals(VAT_RATE)
 
         if form.pdf_file.data:
             path = save_upload(
@@ -305,12 +304,9 @@ def edit_invoice(iid):
         flash("✅ تم التحديث", "success")
         return redirect(url_for("invoices.view_invoice", iid=inv.id))
 
-    return render_template("invoices/form.html", form=form,
-                            title=f"تعديل: {inv.invoice_number}", invoice=inv)
-
-
+    return render_template("invoices/form.html", form=form, title=f"تعديل: {inv.invoice_number}", invoice=inv)
 # ============================================================
-#  View
+#  View (عرض فاتورة)
 # ============================================================
 @bp.route("/<int:iid>")
 @login_required
@@ -323,7 +319,20 @@ def view_invoice(iid):
 
 
 # ============================================================
-#  Delete
+#  Print Invoice (طباعة)
+# ============================================================
+@bp.route("/<int:iid>/print")
+@login_required
+@require_permission("invoices.view")
+def print_invoice(iid):
+    inv = db.session.get(Invoice, iid)
+    if not inv:
+        abort(404)
+    return render_template("invoices/print.html", invoice=inv)
+
+
+# ============================================================
+#  Delete (حذف فاتورة)
 # ============================================================
 @bp.route("/<int:iid>/delete", methods=["POST"])
 @login_required
@@ -345,7 +354,7 @@ def delete_invoice(iid):
 
 
 # ============================================================
-#  Quick actions
+#  Quick Actions
 # ============================================================
 @bp.route("/<int:iid>/mark-paid", methods=["POST"])
 @login_required
@@ -357,16 +366,15 @@ def mark_paid(iid):
     inv.status = "paid"
     inv.paid_at = datetime.utcnow()
     db.session.commit()
+    
     if inv.mission_id:
         _sync_mission_status(inv.mission, inv)
         db.session.commit()
+        
     flash("✅ تم تحديد الفاتورة كمدفوعة", "success")
     return redirect(url_for("invoices.view_invoice", iid=iid))
 
 
-# ============================================================
-#  Sync Mission Status
-# ============================================================
 def _sync_mission_status(mission, invoice):
     """يُحدّث حالة الدفع في المهمة بناءً على الفاتورة."""
     if not mission:
@@ -394,10 +402,8 @@ def _sync_mission_status(mission, invoice):
 @login_required
 @require_permission("invoices.create")
 def extract_invoice():
-    """يستقبل فاتورة ويعيد بياناتها المستخرجة."""
     from flask import jsonify
     from app.core.invoice_ocr import extract_invoice_data
-    from app.modules.suppliers.models import Supplier
 
     file = request.files.get("invoice_file")
     if not file or not file.filename:
@@ -413,7 +419,6 @@ def extract_invoice():
     try:
         file.save(tmp.name)
         tmp.close()
-
         suppliers = Supplier.query.filter_by(status="active").all()
         result = extract_invoice_data(tmp.name, suppliers)
         return jsonify(result)
@@ -425,13 +430,12 @@ def extract_invoice():
 
 
 # ============================================================
-#  Grouped View (By Month + Supplier)
+#  Grouped View (عرض مجمع)
 # ============================================================
 @bp.route("/grouped")
 @login_required
 @require_permission("invoices.view")
 def grouped_invoices():
-    """عرض الفواتير مجمّعة حسب الشهر ثم المورد."""
     invoices = Invoice.query.filter(
         Invoice.issue_date.isnot(None)
     ).order_by(
@@ -466,7 +470,7 @@ def grouped_invoices():
         suppliers_in_month.sort(key=lambda x: x["total"], reverse=True)
         grouped_list.append({
             "month": month_key,
-            "month_label": invoices[0].issue_date.strftime("%B %Y") if invoices else month_key,
+            "month_label": datetime.strptime(month_key, "%Y-%m").strftime("%B %Y"),
             "suppliers": suppliers_in_month,
             "total": month_totals[month_key]["total"],
             "count": month_totals[month_key]["count"],
@@ -479,3 +483,36 @@ def grouped_invoices():
         grouped=grouped_list,
         no_date=no_date,
     )
+
+
+# ============================================================
+#  Revenue Breakdown (تفاصيل الإيرادات حسب العقود)
+# ============================================================
+@bp.route("/revenue-breakdown")
+@login_required
+@require_permission("invoices.view")
+def revenue_breakdown():
+    contracts = Contract.query.all()
+    breakdown = []
+
+    for c in contracts:
+        missions = Mission.query.filter_by(contract_id=c.id).all()
+        if not missions:
+            continue
+            
+        total_revenue = sum(m.revenue or 0 for m in missions)
+        total_cost = sum(m.cost or 0 for m in missions)
+        profit = total_revenue - total_cost
+
+        breakdown.append({
+            "contract": c,
+            "mission_count": len(missions),
+            "revenue": total_revenue,
+            "cost": total_cost,
+            "profit": profit
+        })
+
+    # ترتيب العقود من الأعلى إيراداً للأقل
+    breakdown.sort(key=lambda x: x["revenue"], reverse=True)
+
+    return render_template("invoices/revenue_breakdown.html", breakdown=breakdown)

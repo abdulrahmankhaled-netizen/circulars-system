@@ -43,7 +43,7 @@ class InvoiceForm(FlaskForm):
     
     # ⭐ تم جعل المهمة إلزامية (DataRequired بدلاً من Optional)
     mission_id = SelectField(
-        "المهمة", coerce=int, validators=[DataRequired()]
+        "المهمة", coerce=int, validators=[Optional()]
     )
 
     # التواريخ

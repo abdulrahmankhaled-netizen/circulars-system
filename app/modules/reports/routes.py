@@ -90,133 +90,195 @@ def index():
 
 
 # ============================================================
-#  Profit Analysis
+#  Profit Analysis (Smart & Detailed)
+# ============================================================
+# ============================================================
+#  Profit Analysis (Smart & Detailed)
 # ============================================================
 @bp.route("/profit")
 @login_required
 @require_permission("reports.view")
 def profit():
-    """تحليل الأرباح."""
+    """تحليل الأرباح (المتقدم)."""
     from_date, to_date, period = _get_date_range()
+    
+    # ⭐ إعدادات الفلترة والتجميع الجديدة
+    group_by = request.args.get("group_by", "contract")
+    filter_month = request.args.get("filter_month", "").strip()
+    filter_supplier = request.args.get("filter_supplier", "").strip()
 
-    # كل المهام
+    # 1. جلب المهام في الفترة المحددة
     q = Mission.query
     q = _filter_missions_query(q, from_date, to_date)
     missions = q.all()
 
-    # إجماليات
+    # تطبيق فلاتر الشهر والمورد
+    if filter_supplier:
+        try:
+            sid = int(filter_supplier)
+            missions = [m for m in missions if m.contract and m.contract.supplier_id == sid]
+        except ValueError:
+            pass
+
+    if filter_month:
+        missions = [m for m in missions if m.mission_date and m.mission_date.strftime('%Y-%m') == filter_month]
+
+    # 2. حساب الإجماليات الأساسية
     total_revenue = sum(m.revenue or 0 for m in missions)
-    total_cost = sum(m.cost or 0 for m in missions)
-    total_profit = total_revenue - total_cost
-    profit_margin = (total_profit / total_revenue * 100) if total_revenue else 0
+    total_var_cost = sum(m.cost or 0 for m in missions)
+    collected_revenue = sum(m.revenue or 0 for m in missions if m.customer_invoice_status == 'paid')
+    pending_revenue = total_revenue - collected_revenue
+
+    contracts = Contract.query.all()
+    total_fixed_cost = 0
+    for c in contracts:
+        c_missions = [m for m in missions if m.contract_id == c.id]
+        if len(c_missions) > 0:
+            total_fixed_cost += c.calculated_value
+
+    total_cost = total_var_cost + total_fixed_cost
+    expected_profit = total_revenue - total_cost
+    actual_profit = collected_revenue - total_cost
+    
+    expected_margin = (expected_profit / total_revenue * 100) if total_revenue else 0
+    actual_margin = (actual_profit / collected_revenue * 100) if collected_revenue else 0
 
     totals = {
-        "missions": len(missions),
-        "revenue": total_revenue,
-        "cost": total_cost,
-        "profit": total_profit,
-        "margin": round(profit_margin, 1),
+        "missions": len(missions), "revenue": total_revenue, "collected_revenue": collected_revenue,
+        "pending_revenue": pending_revenue, "var_cost": total_var_cost, "fixed_cost": total_fixed_cost,
+        "cost": total_cost, "expected_profit": expected_profit, "actual_profit": actual_profit,
+        "expected_margin": round(expected_margin, 1), "actual_margin": round(actual_margin, 1),
     }
 
-    # حسب العقد
-    by_contract = {}
-    for m in missions:
-        key = m.contract_id
-        if key not in by_contract:
-            by_contract[key] = {
-                "contract": m.contract,
-                "missions": 0,
-                "revenue": 0,
-                "cost": 0,
-            }
-        by_contract[key]["missions"] += 1
-        by_contract[key]["revenue"] += (m.revenue or 0)
-        by_contract[key]["cost"] += (m.cost or 0)
+    # 3. بناء البيانات الشجرية (Tree View)
+    grouped_data = []
+    suppliers = Supplier.query.filter_by(status="active").order_by(Supplier.company_name_ar).all()
 
-    per_contract = []
-    for v in by_contract.values():
-        v["profit"] = v["revenue"] - v["cost"]
-        v["margin"] = round((v["profit"] / v["revenue"] * 100) if v["revenue"] else 0, 1)
-        per_contract.append(v)
-    per_contract.sort(key=lambda x: x["revenue"], reverse=True)
+    if group_by == "contract":
+        contracts_dict = {}
+        for m in missions:
+            if not m.contract_id: continue
+            if m.contract_id not in contracts_dict:
+                contracts_dict[m.contract_id] = {"contract": m.contract, "missions": [], "months": {}}
+            contracts_dict[m.contract_id]["missions"].append(m)
+            month_key = m.mission_date.strftime("%Y-%m") if m.mission_date else "غير محدد"
+            if month_key not in contracts_dict[m.contract_id]["months"]:
+                contracts_dict[m.contract_id]["months"][month_key] = []
+            contracts_dict[m.contract_id]["months"][month_key].append(m)
 
-    # حسب المورد
-    by_supplier = {}
-    for m in missions:
-        if not m.contract or not m.contract.supplier:
-            continue
-        key = m.contract.supplier_id
-        if key not in by_supplier:
-            by_supplier[key] = {
-                "supplier": m.contract.supplier,
-                "missions": 0,
-                "revenue": 0,
-                "cost": 0,
-            }
-        by_supplier[key]["missions"] += 1
-        by_supplier[key]["revenue"] += (m.revenue or 0)
-        by_supplier[key]["cost"] += (m.cost or 0)
+        for cid, data in contracts_dict.items():
+            c = data["contract"]
+            c_totals = {k: 0 for k in ["revenue", "collected_revenue", "pending_revenue", "var_cost", "fixed_cost", "total_cost", "expected_profit", "actual_profit"]}
+            children = []
 
-    per_supplier = []
-    for v in by_supplier.values():
-        v["profit"] = v["revenue"] - v["cost"]
-        v["margin"] = round((v["profit"] / v["revenue"] * 100) if v["revenue"] else 0, 1)
-        per_supplier.append(v)
-    per_supplier.sort(key=lambda x: x["revenue"], reverse=True)
+            # حساب التكلفة الثابتة الشهرية للعقد
+            c_fixed = 0
+            for item in c.equipment_items:
+                if item.pricing_period in ['monthly', 'annual']:
+                    cost = (item.quantity or 1) * (item.unit_price or 0)
+                    if item.pricing_period == 'annual': cost /= 12
+                    c_fixed += cost
 
-    # حسب المعدة
-    by_equipment = {}
-    for m in missions:
-        key = m.equipment_key
-        if key not in by_equipment:
-            by_equipment[key] = {
-                "key": key,
-                "name": m.equipment_name_ar(),
-                "missions": 0,
-                "revenue": 0,
-                "cost": 0,
-            }
-        by_equipment[key]["missions"] += 1
-        by_equipment[key]["revenue"] += (m.revenue or 0)
-        by_equipment[key]["cost"] += (m.cost or 0)
+            for month_key, m_list in sorted(data["months"].items()):
+                m_rev = sum(m.revenue or 0 for m in m_list)
+                m_col = sum(m.revenue or 0 for m in m_list if m.customer_invoice_status == 'paid')
+                m_var = sum(m.cost or 0 for m in m_list)
+                m_total_cost = m_var + c_fixed
 
-    per_equipment = []
-    for v in by_equipment.values():
-        v["profit"] = v["revenue"] - v["cost"]
-        v["margin"] = round((v["profit"] / v["revenue"] * 100) if v["revenue"] else 0, 1)
-        per_equipment.append(v)
-    per_equipment.sort(key=lambda x: x["missions"], reverse=True)
+                child = {
+                    "name": month_key, "missions": len(m_list), "revenue": m_rev, "collected_revenue": m_col,
+                    "pending_revenue": m_rev - m_col, "var_cost": m_var, "fixed_cost": c_fixed,
+                    "total_cost": m_total_cost, "expected_profit": m_rev - m_total_cost, "actual_profit": m_col - m_total_cost
+                }
+                children.append(child)
 
-    # حسب الشهر
-    by_month = {}
-    for m in missions:
-        if not m.mission_date:
-            continue
-        key = m.mission_date.strftime("%Y-%m")
-        if key not in by_month:
-            by_month[key] = {"month": key, "missions": 0, "revenue": 0, "cost": 0}
-        by_month[key]["missions"] += 1
-        by_month[key]["revenue"] += (m.revenue or 0)
-        by_month[key]["cost"] += (m.cost or 0)
+                c_totals["revenue"] += m_rev
+                c_totals["collected_revenue"] += m_col
+                c_totals["var_cost"] += m_var
+                c_totals["fixed_cost"] += c_fixed
+                c_totals["total_cost"] += m_total_cost
 
-    per_month = []
-    for v in sorted(by_month.values(), key=lambda x: x["month"]):
-        v["profit"] = v["revenue"] - v["cost"]
-        per_month.append(v)
+            c_totals["pending_revenue"] = c_totals["revenue"] - c_totals["collected_revenue"]
+            c_totals["expected_profit"] = c_totals["revenue"] - c_totals["total_cost"]
+            c_totals["actual_profit"] = c_totals["collected_revenue"] - c_totals["total_cost"]
+            c_totals["missions"] = len(data["missions"])
+
+            grouped_data.append({
+                "group_name": f"{c.contract_number} - {c.supplier.company_name_ar}",
+                "totals": c_totals, "children": children
+            })
+
+    elif group_by == "month":
+        months_dict = {}
+        for m in missions:
+            if not m.mission_date: continue
+            month_key = m.mission_date.strftime("%Y-%m")
+            if month_key not in months_dict:
+                months_dict[month_key] = {"missions": [], "contracts": {}}
+            months_dict[month_key]["missions"].append(m)
+
+            cid = m.contract_id
+            if cid not in months_dict[month_key]["contracts"]:
+                months_dict[month_key]["contracts"][cid] = {"contract": m.contract, "missions": []}
+            months_dict[month_key]["contracts"][cid]["missions"].append(m)
+
+        for month_key, data in sorted(months_dict.items(), reverse=True):
+            m_totals = {k: 0 for k in ["revenue", "collected_revenue", "pending_revenue", "var_cost", "fixed_cost", "total_cost", "expected_profit", "actual_profit"]}
+            children = []
+
+            for cid, c_data in data["contracts"].items():
+                c = c_data["contract"]
+                c_missions = c_data["missions"]
+
+                c_rev = sum(m.revenue or 0 for m in c_missions)
+                c_col = sum(m.revenue or 0 for m in c_missions if m.customer_invoice_status == 'paid')
+                c_var = sum(m.cost or 0 for m in c_missions)
+
+                c_fixed = 0
+                for item in c.equipment_items:
+                    if item.pricing_period in ['monthly', 'annual']:
+                        cost = (item.quantity or 1) * (item.unit_price or 0)
+                        if item.pricing_period == 'annual': cost /= 12
+                        c_fixed += cost
+
+                c_total_cost = c_var + c_fixed
+
+                child = {
+                    "name": f"{c.contract_number} - {c.supplier.company_name_ar}", "missions": len(c_missions),
+                    "revenue": c_rev, "collected_revenue": c_col, "pending_revenue": c_rev - c_col,
+                    "var_cost": c_var, "fixed_cost": c_fixed, "total_cost": c_total_cost,
+                    "expected_profit": c_rev - c_total_cost, "actual_profit": c_col - c_total_cost
+                }
+                children.append(child)
+
+                m_totals["revenue"] += c_rev
+                m_totals["collected_revenue"] += c_col
+                m_totals["var_cost"] += c_var
+                m_totals["fixed_cost"] += c_fixed
+                m_totals["total_cost"] += c_total_cost
+
+            m_totals["pending_revenue"] = m_totals["revenue"] - m_totals["collected_revenue"]
+            m_totals["expected_profit"] = m_totals["revenue"] - m_totals["total_cost"]
+            m_totals["actual_profit"] = m_totals["collected_revenue"] - m_totals["total_cost"]
+            m_totals["missions"] = len(data["missions"])
+
+            grouped_data.append({
+                "group_name": month_key,
+                "totals": m_totals, "children": children
+            })
 
     return render_template(
         "reports/profit.html",
         totals=totals,
-        per_contract=per_contract,
-        per_supplier=per_supplier,
-        per_equipment=per_equipment,
-        per_month=per_month,
+        grouped_data=grouped_data,
+        group_by=group_by,
+        filter_month=filter_month,
+        filter_supplier=filter_supplier,
+        suppliers=suppliers,
         from_date=from_date.strftime("%Y-%m-%d") if from_date else "",
         to_date=to_date.strftime("%Y-%m-%d") if to_date else "",
         period=period,
     )
-
-
 # ============================================================
 #  Missions Report
 # ============================================================
@@ -230,24 +292,20 @@ def missions_report():
     q = _filter_missions_query(q, from_date, to_date)
     missions = q.all()
 
-    # حسب الحالة
     by_status = {}
     for m in missions:
         by_status[m.status] = by_status.get(m.status, 0) + 1
 
-    # حسب المعدة
     by_equipment = {}
     for m in missions:
         key = m.equipment_key
         by_equipment[key] = by_equipment.get(key, 0) + 1
 
-    # حسب المنطقة
     by_region = {}
     for m in missions:
         key = m.region or "(بدون)"
         by_region[key] = by_region.get(key, 0) + 1
 
-    # حسب السائق
     by_driver = {}
     for m in missions:
         if m.driver_name:
@@ -288,22 +346,22 @@ def suppliers_report():
 
     results = []
     for s in suppliers:
-        # مهام هذا المورد
         missions_q = Mission.query.join(Contract).filter(Contract.supplier_id == s.id)
         missions_q = _filter_missions_query(missions_q, from_date, to_date)
         missions = missions_q.all()
 
         revenue = sum(m.revenue or 0 for m in missions)
+        collected_revenue = sum(m.revenue or 0 for m in missions if m.customer_invoice_status == 'paid')
         cost = sum(m.cost or 0 for m in missions)
-        profit = revenue - cost
-        margin = (profit / revenue * 100) if revenue else 0
+        
+        expected_profit = revenue - cost
+        actual_profit = collected_revenue - cost
+        margin = (expected_profit / revenue * 100) if revenue else 0
 
-        # فواتير المورد
         invoices = Invoice.query.filter_by(supplier_id=s.id).all()
         total_invoiced = sum(i.total_amount or 0 for i in invoices)
         paid_invoices = sum(i.total_amount or 0 for i in invoices if i.status == "paid")
 
-        # معدل النجاح
         completed = sum(1 for m in missions if m.status in ("completed", "verified", "paid"))
         success_rate = (completed / len(missions) * 100) if missions else 0
 
@@ -311,8 +369,10 @@ def suppliers_report():
             "supplier": s,
             "missions": len(missions),
             "revenue": revenue,
+            "collected_revenue": collected_revenue,
             "cost": cost,
-            "profit": profit,
+            "expected_profit": expected_profit,
+            "actual_profit": actual_profit,
             "margin": round(margin, 1),
             "total_invoiced": total_invoiced,
             "paid_invoices": paid_invoices,
@@ -355,8 +415,8 @@ def export_profit():
 
     headers = [
         "رقم المهمة", "التاريخ", "العقد", "المورد", "المعدة",
-        "اللوحة", "المنطقة", "الحالة",
-        "التكلفة", "الإيراد", "الربح", "الهامش %",
+        "اللوحة", "المنطقة", "الحالة", "حالة الدفع",
+        "التكلفة", "الإيراد", "الربح المتوقع", "الهامش %",
     ]
 
     hfont = Font(bold=True, color="FFFFFF")
@@ -383,12 +443,13 @@ def export_profit():
         ws.cell(row=i, column=6, value=m.vehicle_plate or "")
         ws.cell(row=i, column=7, value=m.region or "")
         ws.cell(row=i, column=8, value=m.status)
-        ws.cell(row=i, column=9, value=cost)
-        ws.cell(row=i, column=10, value=revenue)
-        ws.cell(row=i, column=11, value=profit)
-        ws.cell(row=i, column=12, value=round(margin, 1))
+        ws.cell(row=i, column=9, value=m.customer_invoice_label() if hasattr(m, 'customer_invoice_label') else m.customer_invoice_status)
+        ws.cell(row=i, column=10, value=cost)
+        ws.cell(row=i, column=11, value=revenue)
+        ws.cell(row=i, column=12, value=profit)
+        ws.cell(row=i, column=13, value=round(margin, 1))
 
-    widths = [14, 12, 16, 25, 20, 14, 14, 12, 12, 12, 12, 10]
+    widths = [14, 12, 16, 25, 20, 14, 14, 12, 14, 12, 12, 12, 10]
     for idx, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(idx)].width = w
 

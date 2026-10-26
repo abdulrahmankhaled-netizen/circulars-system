@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}إضافة أسعار دفعة — {{ supplier.company_name_ar }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h3 class="fw-bold mb-1">
+            <i class="bi bi-lightning-charge-fill text-warning"></i>
+            إضافة أسعار دفعة واحدة
+        </h3>
+        <small class="text-muted">
+            المورد: <strong>{{ supplier.company_name_ar }}</strong>
+            {% if supplier.company_name_en %}— {{ supplier.company_name_en }}{% endif %}
+        </small>
+    </div>
+    <a href="{{ url_for('equipment.list_prices', supplier=supplier.id) }}"
+       class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-right"></i> رجوع
+    </a>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    املأ الأسعار التي تريدها فقط — الحقول الفارغة ستُتجاهل.
+    إذا كان السعر موجوداً مسبقاً سيُحدَّث تلقائياً.
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+            <h6 class="mb-0">
+                <i class="bi bi-tags"></i>
+                أسعار المعدات (AED)
+                <span class="badge bg-white text-primary ms-2">{{ equipment_types|length }}</span>
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                {% for eq in equipment_types %}
+                {% set current = existing.get(eq.key) %}
+                <div class="col-md-6 col-lg-4">
+                    <label class="form-label fw-bold small">
+                        {{ eq.name_ar }}
+                        {% if eq.name_en %}
+                            <span class="text-muted fw-normal">({{ eq.name_en }})</span>
+                        {% endif %}
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="bi bi-currency-exchange"></i>
+                        </span>
+                        <input type="number"
+                               name="price_{{ eq.key }}"
+                               class="form-control"
+                               step="0.01"
+                               min="0"
+                               placeholder="{{ current.unit_price if current else '0.00' }}"
+                               value="{{ current.unit_price if current else '' }}">
+                        <span class="input-group-text">AED</span>
+                    </div>
+                    {% if current %}
+                        <small class="text-success">
+                            <i class="bi bi-check-circle"></i>
+                            سعر حالي: {{ "{:,.2f}".format(current.unit_price) }}
+                        </small>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card-footer bg-light d-flex justify-content-between">
+            <button type="submit" class="btn btn-success px-4">
+                <i class="bi bi-check2-circle"></i> حفظ كل الأسعار
+            </button>
+            <a href="{{ url_for('equipment.list_prices', supplier=supplier.id) }}"
+               class="btn btn-outline-secondary">
+                <i class="bi bi-x-lg"></i> إلغاء
+            </a>
+        </div>
+    </div>
+</form>
+
+{% endblock %}

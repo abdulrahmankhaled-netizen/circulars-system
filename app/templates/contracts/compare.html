@@ -75,7 +75,7 @@
 {% if insights %}
 <div class="row g-3 mb-4">
     {% for ins in insights %}
-    <div class="col-md-4">
+    <div class="col-md-6">
         <div class="alert alert-{{ ins.type }} mb-0 h-100">
             <i class="bi bi-{{ ins.icon }} fs-4"></i>
             <span class="ms-2">{{ ins.text }}</span>
@@ -104,15 +104,11 @@
                     </div>
                     <span class="badge bg-{{ diff.color }} fs-6">
                         <i class="bi bi-{{ 'arrow-up' if diff.direction == 'up' else 'arrow-down' if diff.direction == 'down' else 'dash' }}"></i>
-                        {{ '%+.1f'|format(diff.pct) }}%
+                        {{ '{:+.1f}'.format(diff.pct) }}%
                     </span>
                 </div>
                 <h3 class="mb-1 fw-bold text-{{ diff.color }}">
-                    {% if label == 'المهام' %}
-                        {{ "{:,.0f}".format(v1) }}
-                    {% else %}
-                        {{ "{:,.0f}".format(v1) }}
-                    {% endif %}
+                    {{ "{:,.0f}".format(v1) }}
                 </h3>
                 <div class="small text-muted">
                     السابقة: {{ "{:,.0f}".format(v2) }}
@@ -120,7 +116,7 @@
                 <hr class="my-2">
                 <div class="small">
                     <strong class="{{ 'text-success' if diff.diff >= 0 else 'text-danger' }}">
-                        {{ "%+,.0f"|format(diff.diff) }}
+                        {{ "{:+,.0f}".format(diff.diff) }}
                     </strong>
                     {% if label != 'المهام' %}<small class="text-muted">AED</small>{% endif %}
                 </div>
@@ -141,7 +137,7 @@
                         {{ "{:,.0f}".format(p1.avg_per_mission) }} AED
                     </h4>
                     <span class="badge bg-{{ diffs.avg_per_mission.color }}">
-                        {{ '%+.1f'|format(diffs.avg_per_mission.pct) }}%
+                        {{ '{:+.1f}'.format(diffs.avg_per_mission.pct) }}%
                     </span>
                 </div>
                 <small class="text-muted">السابقة: {{ "{:,.0f}".format(p2.avg_per_mission) }}</small>
@@ -155,7 +151,7 @@
                 <div class="d-flex justify-content-between align-items-end">
                     <h4 class="mb-0 text-success fw-bold">{{ p1.margin }}%</h4>
                     <span class="badge bg-{{ diffs.margin.color }}">
-                        {{ '%+.1f'|format(diffs.margin.pct) }}%
+                        {{ '{:+.1f}'.format(diffs.margin.pct) }}%
                     </span>
                 </div>
                 <small class="text-muted">السابقة: {{ p2.margin }}%</small>
@@ -169,7 +165,7 @@
                 <div class="d-flex justify-content-between align-items-end">
                     <h4 class="mb-0 text-warning fw-bold">{{ p1.completed }}</h4>
                     <span class="badge bg-{{ diffs.completed.color }}">
-                        {{ '%+.1f'|format(diffs.completed.pct) }}%
+                        {{ '{:+.1f}'.format(diffs.completed.pct) }}%
                     </span>
                 </div>
                 <small class="text-muted">السابقة: {{ p2.completed }}</small>
@@ -225,12 +221,12 @@
                     </td>
                     <td class="text-center">
                         <span class="badge bg-{{ 'success' if e.count_diff >= 0 else 'danger' }} fs-6">
-                            {{ '%+d'|format(e.count_diff) }}
+                            {{ '{:+d}'.format(e.count_diff) }}
                         </span>
                     </td>
                     <td class="text-end fw-bold">{{ "{:,.0f}".format(e.revenue1) }}</td>
                     <td class="text-end fw-bold {{ 'text-success' if e.revenue_diff >= 0 else 'text-danger' }}">
-                        {{ "%+,.0f"|format(e.revenue_diff) }}
+                        {{ "{:+,.0f}".format(e.revenue_diff) }}
                     </td>
                 </tr>
                 {% else %}

@@ -38,22 +38,26 @@
                         </small>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-danger">
-                            <i class="bi bi-file-earmark-text"></i>
-                            العقد (إلزامي) <span class="text-danger">*</span>
-                        </label>
-                        <select name="default_contract_id" class="form-select form-select-lg" required>
-                            <option value="">— اختر العقد —</option>
-                            {% for c in contracts %}
-                            <option value="{{ c.id }}">
-                                {{ c.contract_number }} — {{ c.supplier.company_name_ar }} [{{ c.status }}]
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">
-                            سيُربط كل المهام المستوردة بهذا العقد.
-                        </small>
+                   <div class="mb-3">
+    <label class="form-label fw-bold text-danger">
+        <i class="bi bi-file-earmark-text"></i>
+        العقد (إلزامي) <span class="text-danger">*</span>
+    </label>
+    <select name="default_contract_id" class="form-select form-select-lg" required style="font-size: 0.95rem;">
+        <option value="">— اختر العقد —</option>
+        {% for c in contracts %}
+        <option value="{{ c.id }}" style="padding: 10px;">
+            {% if c.status == 'active' %}🟢 [نشط]{% elif c.status == 'expired' %}🔴 [منتهي]{% else %}🟡 [{{ c.status }}]{% endif %} 
+            {{ c.contract_number }} 
+            | {{ c.project_name or c.client_entity or 'بدون مشروع' }} 
+            | {{ c.supplier.company_name_ar }}
+        </option>
+        {% endfor %}
+    </select>
+    <small class="text-muted mt-2 d-block">
+        <i class="bi bi-info-circle"></i> سيُربط كل المهام المستوردة بهذا العقد. العقود النشطة تظهر في الأعلى.
+    </small>
+</div>
                     </div>
 
                     <div class="alert alert-info py-2 mb-3 small">
@@ -77,6 +81,30 @@
 
     <!-- ═══════════ العمود الأيمن ═══════════ -->
     <div class="col-lg-4">
+        <!-- ⚡ التحديث الجماعي (مدفوعة) -->
+        <div class="card shadow-sm mb-3 border-success" style="border-width: 2px;">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-check2-all"></i> تحديث جماعي (مدفوعة)
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">
+                    انسخ الأرقام من الإكسل (Job Order أو رقم المهمة) والصقها هنا لتغيير حالتها إلى "مدفوعة" دفعة واحدة.
+                </p>
+                <form method="POST" action="{{ url_for('missions.bulk_mark_paid') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-2">
+                        <textarea name="mission_ids_text" class="form-control form-control-sm" rows="5" 
+                                  placeholder="الصق الأرقام هنا...&#10;JO-2026-1245&#10;MIS-2026-0001"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 fw-bold" 
+                            onclick="return confirm('هل أنت متأكد من تغيير حالة هذه المهام إلى مدفوعة؟');">
+                        <i class="bi bi-cash-coin"></i> تطبيق (مدفوعة)
+                    </button>
+                </form>
+            </div>
+        </div>
 
         <!-- 📥 تحميل التمبليت -->
         <div class="card shadow-sm mb-3 border-success" style="border-width: 2px;">

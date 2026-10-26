@@ -32,3 +32,18 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Backups & One-off scripts
+*.old
+*.bak
+*.backup
+Dockerfile.old
+fix_project_name.py
+
+# Env variants (احتياط)
+.env.*
+!.env.example
+
+# OS
+Thumbs.db
+Desktop.ini
